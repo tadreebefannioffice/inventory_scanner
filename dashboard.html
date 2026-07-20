@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventory Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Inventory Dashboard</h1>
+        
+        <div class="stats">
+            <div class="stat-card">
+                <h3>Total Items</h3>
+                <p id="totalItems">0</p>
+            </div>
+            <div class="stat-card">
+                <h3>Registered</h3>
+                <p id="registeredItems">0</p>
+            </div>
+            <div class="stat-card">
+                <h3>Unregistered</h3>
+                <p id="unregisteredItems">0</p>
+            </div>
+        </div>
+        
+        <div id="itemList">
+            <h3>All Items</h3>
+            <input type="text" id="searchBar" placeholder="Search items..." onkeyup="searchItems()" class="search-bar">
+            <div id="itemsTable"></div>
+        </div>
+        
+        <p><a href="index.html">← Back to Scanner</a></p>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app.js"></script>
+    <script src="dashboard.js"></script>
+</body>
+</html>
