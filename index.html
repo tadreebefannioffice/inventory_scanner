@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Inventory Scanner</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://unpkg.com/html5-qrcode"></script>
+</head>
+<body>
+    <h1>📦 Inventory Scanner</h1>
+    
+    <div id="scanner" style="width:100%; max-width:400px; margin:20px auto;"></div>
+    
+    <div id="result" style="margin-top:20px; padding:15px; border:1px solid #ccc; display:none;">
+        <h2 id="itemTitle"></h2>
+        <p id="itemDetails"></p>
+        <button onclick="registerItem()" id="registerBtn" style="display:none;">Register This Item</button>
+        <button onclick="updateStock()" id="updateBtn" style="display:none;">Update Stock</button>
+    </div>
+
+    <script>
+        // Import Supabase client (free database)
+        const { createClient } = supabase;
+        const supabaseUrl = 'YOUR_SUPABASE_URL'; // Get from supabase.com
+        const supabaseKey = 'YOUR_SUPABASE_ANON_KEY';
+        const supabaseClient = createClient(supabaseUrl, supabaseKey);
+
+        // Start scanner
+        const scanner = new Html5Qrcode("scanner");
+        scanner.start(
+            { facingMode: "environment" },
+            { fps: 10, qrbox: { width: 250, height: 250 } },
+            async (decodedText) => {
+                // decodedText = "LAPTOP-001" (or full URL)
+                const itemId = decodedText.split('id=')[1] || decodedText;
+                await lookupItem(itemId);
+                scanner.stop();
+            },
+            (error) => {}
+        );
+
+        async function lookupItem(itemId) {
+            // Query Supabase database
+            const { data, error } = await supabaseClient
+                .from('items')
+                .select('*')
+                .eq('unique_id', itemId);
+
+            const item = data[0];
+            document.getElementById('result').style.display = 'block';
+
+            if (!item) {
+                // NEW ITEM - Not in database yet
+                document.getElementById('itemTitle').textContent = '🔵 New Item Detected!';
+                document.getElementById('itemDetails').textContent = `ID: ${itemId} - This item hasn't been registered yet.`;
+                document.getElementById('registerBtn').style.display = 'inline-block';
+                document.getElementById('updateBtn').style.display = 'none';
+                window.currentItemId = itemId;
+            } else if (item.status === 'registered') {
+                // EXISTING ITEM - Show details
+                document.getElementById('itemTitle').textContent = `✅ ${item.category}`;
+                document.getElementById('itemDetails').textContent = `
+                    Serial: ${item.serial_number || 'N/A'}
+                    Assigned to: ${item.assigned_to || 'Unassigned'}
+                    Location: ${item.location || 'Unknown'}
+                    Status: ${item.status}
+                `;
+                document.getElementById('registerBtn').style.display = 'none';
+                document.getElementById('updateBtn').style.display = 'inline-block';
+                window.currentItemId = itemId;
+            }
+        }
+
+        async function registerItem() {
+            const serial = prompt('Enter serial number:');
+            const assignedTo = prompt('Assigned to (person/department):');
+            
+            const { error } = await supabaseClient
+                .from('items')
+                .insert([
+                    { 
+                        unique_id: window.currentItemId,
+                        category: 'Unknown (Scan to update)',
+                        serial_number: serial,
+                        assigned_to: assignedTo,
+                        status: 'registered',
+                        registered_at: new Date()
+                    }
+                ]);
+            
+            if (!error) {
+                alert('✅ Item registered successfully!');
+                location.reload();
+            }
+        }
+
+        async function updateStock() {
+            const newQty = prompt('Enter new quantity:');
+            const { error } = await supabaseClient
+                .from('items')
+                .update({ quantity: newQty })
+                .eq('unique_id', window.currentItemId);
+            
+            if (!error) {
+                alert('✅ Stock updated!');
+                location.reload();
+            }
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</body>
+</html>
