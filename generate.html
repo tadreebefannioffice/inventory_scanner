@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generate QR Codes</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🏷️ Generate QR Codes</h1>
+        <p class="subtitle">Create QR code stickers for your equipment</p>
+        
+        <form id="generateForm" class="generate-form">
+            <div class="form-group">
+                <label for="itemName">Item Name:</label>
+                <input type="text" id="itemName" placeholder="e.g., Laptop, Camera, Monitor" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="quantity">Quantity:</label>
+                <input type="number" id="quantity" min="1" max="100" value="5" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="category">Category (optional):</label>
+                <input type="text" id="category" placeholder="e.g., Electronics, Furniture">
+            </div>
+            
+            <button type="submit" class="btn btn-primary btn-large">Generate QR Codes</button>
+        </form>
+        
+        <div id="qrOutput" style="display:none;">
+            <h3>Your QR Codes:</h3>
+            <div id="qrGrid" class="qr-grid"></div>
+            <button onclick="window.print()" class="btn btn-secondary">🖨️ Print QR Codes</button>
+            <br><br>
+            <button onclick="saveToDatabase()" class="btn btn-success">💾 Save All to Inventory</button>
+        </div>
+        
+        <p><a href="index.html">← Back to Scanner</a></p>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app.js"></script>
+    <script src="generate.js"></script>
+</body>
+</html>
