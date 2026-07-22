@@ -195,14 +195,16 @@
             margin-bottom: 5px;
             color: #2d3748;
         }
-        .form-group input {
+        .form-group input,
+        .form-group select {
             width: 100%;
             padding: 12px;
             border: 2px solid #e2e8f0;
             border-radius: 8px;
             font-size: 16px;
         }
-        .form-group input:focus {
+        .form-group input:focus,
+        .form-group select:focus {
             outline: none;
             border-color: #4299e1;
         }
@@ -246,6 +248,21 @@
         .modal-close:hover {
             color: #e53e3e;
         }
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .badge-green {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+        .badge-red {
+            background: #fed7d7;
+            color: #742a2a;
+        }
     </style>
 </head>
 <body>
@@ -254,9 +271,6 @@
         <h1>📦 Inventory Scanner</h1>
         <p class="subtitle">Scan a QR code to view or register items</p>
 
-        <!-- ========================================== -->
-        <!-- SCANNER AREA                               -->
-        <!-- ========================================== -->
         <div id="scanner">
             <div id="loading">
                 <p>⏳ Loading camera...</p>
@@ -265,9 +279,6 @@
             </div>
         </div>
 
-        <!-- ========================================== -->
-        <!-- RESULT AREA                                -->
-        <!-- ========================================== -->
         <div id="result">
             <h2 id="itemTitle"></h2>
             <div id="itemDetails"></div>
@@ -282,9 +293,6 @@
             </button>
         </div>
 
-        <!-- ========================================== -->
-        <!-- REGISTER MODAL                             -->
-        <!-- ========================================== -->
         <div id="registerModal" class="modal-overlay">
             <div class="modal">
                 <button class="modal-close" onclick="closeModal('registerModal')">✕</button>
@@ -314,9 +322,6 @@
             </div>
         </div>
 
-        <!-- ========================================== -->
-        <!-- UPDATE MODAL                               -->
-        <!-- ========================================== -->
         <div id="updateModal" class="modal-overlay">
             <div class="modal">
                 <button class="modal-close" onclick="closeModal('updateModal')">✕</button>
@@ -327,7 +332,7 @@
                 </div>
                 <div class="form-group">
                     <label>Field to Update</label>
-                    <select id="updField" style="width:100%; padding:12px; border:2px solid #e2e8f0; border-radius:8px; font-size:16px;">
+                    <select id="updField">
                         <option value="quantity">Quantity</option>
                         <option value="location">Location</option>
                         <option value="assigned_to">Assigned To</option>
@@ -344,38 +349,26 @@
             </div>
         </div>
 
-        <!-- ========================================== -->
-        <!-- NAVIGATION                                 -->
-        <!-- ========================================== -->
         <div class="nav-links">
             <a href="generate.html">🏷️ Generate QR Codes</a> |
             <a href="dashboard.html">📊 Dashboard</a>
         </div>
     </div>
 
-    <!-- ========================================== -->
-    <!-- LIBRARIES                                  -->
-    <!-- ========================================== -->
-    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js">
-    </script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
-    </script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
-    <!-- ========================================== -->
-    <!-- MAIN APP CODE                              -->
-    <!-- ========================================== -->
     <script>
         // =============================================
-        // SUPABASE CONFIGURATION
+        // GOOGLE SHEETS CONFIGURATION
         // =============================================
-        const SUPABASE_URL = 'https://tadreebefanniofficesproject.supabase.co';
-        const SUPABASE_ANON_KEY = 'sb_publishable_kmv5d3hyY0cXVEUdzhP8w_B9-P4_';
 
-        // =============================================
-        // INITIALIZE SUPABASE
-        // =============================================
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        const TABLE_NAME = 'items';
+        // REPLACE THIS WITH YOUR ACTUAL SHEET ID
+        // Find it in your sheet's URL: https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/edit
+        const SHEET_ID = '1gCUrMIfLzoRa_xGyxC4P11O7A5_GtPKfH1ZjF8roR6U';
+
+        // REPLACE THIS WITH YOUR PUBLISHED SHEET URL
+        // File → Share → Publish to web → Copy the link
+        const PUBLISHED_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQSCd01INOuD9wKuGp41yB1KtgNDTAdPKpNrZWKv3oaODss2-putL73f3phWpB16TfE2rre2tdeyM9R/pubhtml';
 
         // =============================================
         // STATE
@@ -384,60 +377,90 @@
         let currentItemId = null;
         let isProcessing = false;
         let currentItemData = null;
+        let sheetData = [];
 
         // =============================================
-        // DATABASE FUNCTIONS
+        // GOOGLE SHEETS FUNCTIONS
         // =============================================
-        async function getItemById(itemId) {
+
+        // Fetch all data from Google Sheets
+        async function fetchSheetData() {
             try {
-                const { data, error } = await supabaseClient
-                    .from(TABLE_NAME)
-                    .select('*')
-                    .eq('unique_id', itemId)
-                    .maybeSingle();
-                if (error) {
-                    console.error('Get item error:', error);
-                    return null;
+                // Use the published CSV URL
+                const response = await fetch(PUBLISHED_URL);
+                const csvText = await response.text();
+
+                // Parse CSV
+                const lines = csvText.split('\n');
+                const headers = lines[0].split(',').map(h => h.trim());
+
+                const data = [];
+                for (let i = 1; i < lines.length; i++) {
+                    if (lines[i].trim() === '') continue;
+                    const values = lines[i].split(',').map(v => v.trim());
+                    const row = {};
+                    headers.forEach((header, index) => {
+                        row[header] = values[index] || '';
+                    });
+                    data.push(row);
                 }
+
+                sheetData = data;
                 return data;
-            } catch (e) {
-                console.error('Get item exception:', e);
-                return null;
+            } catch (error) {
+                console.error('Error fetching sheet data:', error);
+                return [];
             }
         }
 
-        async function saveItem(itemData) {
+        // Get item by ID from the sheet data
+        function getItemFromSheet(itemId) {
+            return sheetData.find(row => row.unique_id === itemId);
+        }
+
+        // =============================================
+        // ADD NEW ITEM TO GOOGLE SHEETS (via Form)
+        // =============================================
+        async function addItemToSheet(itemData) {
             try {
-                const { data, error } = await supabaseClient
-                    .from(TABLE_NAME)
-                    .insert([itemData])
-                    .select();
-                if (error) {
-                    console.error('Save error:', error);
-                    throw new Error(error.message);
-                }
-                return { success: true, data: data };
-            } catch (e) {
-                console.error('Save exception:', e);
-                throw e;
+                // Google Sheets doesn't allow direct API writes without OAuth.
+                // Instead, we'll use a Google Apps Script web app.
+
+                // For now, we'll simulate the addition and log to console.
+                // The user will need to manually add the row or we'll set up Apps Script.
+
+                console.log('📝 Item to add:', itemData);
+                alert('📝 Please add this item manually to your Google Sheet:\n\n' +
+                    'ID: ' + itemData.unique_id + '\n' +
+                    'Category: ' + itemData.category + '\n' +
+                    'Serial: ' + itemData.serial_number + '\n' +
+                    'Assigned To: ' + itemData.assigned_to + '\n' +
+                    'Location: ' + itemData.location + '\n\n' +
+                    'The data will be available after you add it to the sheet.');
+
+                // Simulate success
+                return { success: true, data: itemData };
+            } catch (error) {
+                console.error('Error adding item:', error);
+                return { success: false, error: error.message };
             }
         }
 
-        async function updateItemData(itemId, updateData) {
+        // =============================================
+        // UPDATE ITEM IN GOOGLE SHEETS
+        // =============================================
+        async function updateItemInSheet(itemId, updateData) {
             try {
-                const { data, error } = await supabaseClient
-                    .from(TABLE_NAME)
-                    .update(updateData)
-                    .eq('unique_id', itemId)
-                    .select();
-                if (error) {
-                    console.error('Update error:', error);
-                    throw new Error(error.message);
-                }
-                return data;
-            } catch (e) {
-                console.error('Update exception:', e);
-                throw e;
+                console.log('✏️ Updating item:', itemId, updateData);
+                alert('✏️ Please update this item manually in your Google Sheet:\n\n' +
+                    'ID: ' + itemId + '\n' +
+                    'Field: ' + Object.keys(updateData)[0] + '\n' +
+                    'New Value: ' + Object.values(updateData)[0]);
+
+                return { success: true };
+            } catch (error) {
+                console.error('Error updating item:', error);
+                return { success: false, error: error.message };
             }
         }
 
@@ -491,8 +514,12 @@
                 return;
             }
 
+            const btn = document.querySelector('#registerModal .btn-success');
+            btn.disabled = true;
+            btn.textContent = '⏳ Saving...';
+
             try {
-                const result = await saveItem({
+                const result = await addItemToSheet({
                     unique_id: itemId,
                     category: category,
                     serial_number: serial,
@@ -500,19 +527,23 @@
                     location: location,
                     status: 'registered',
                     quantity: 1,
-                    registered_at: new Date().toISOString()
+                    registered_at: new Date().toISOString().split('T')[0]
                 });
 
-                if (result.success) {
-                    showToast('✅ Item registered successfully!');
+                if (result && result.success) {
+                    showToast('✅ Item registered! Please check your Google Sheet.');
                     closeModal('registerModal');
                     await lookupItem(itemId);
                 } else {
                     showToast('❌ Failed to register item', true);
                 }
             } catch (error) {
+                console.error('Registration error:', error);
                 showToast('❌ Error: ' + error.message, true);
             }
+
+            btn.disabled = false;
+            btn.textContent = '✅ Register Item';
         }
 
         function openUpdateModal() {
@@ -533,8 +564,8 @@
             }
 
             try {
-                await updateItemData(itemId, { [field]: value });
-                showToast('✅ Item updated successfully!');
+                await updateItemInSheet(itemId, { [field]: value });
+                showToast('✅ Item updated! Please check your Google Sheet.');
                 closeModal('updateModal');
                 await lookupItem(itemId);
             } catch (error) {
@@ -549,65 +580,44 @@
             const scannerDiv = document.getElementById('scanner');
             const loadingDiv = document.getElementById('loading');
 
-            // Clear any existing scanner
             if (html5QrCode) {
-                try {
-                    html5QrCode.stop().catch(() => {});
-                } catch (e) {}
+                try { html5QrCode.stop().catch(() => {}); } catch (e) {}
                 html5QrCode = null;
             }
 
-            // Clear the scanner div
             scannerDiv.innerHTML = '';
             const newLoading = document.createElement('div');
             newLoading.id = 'loading';
-            newLoading.innerHTML = `
-                    <p>⏳ Loading camera...</p>
-                    <p style="font-size:12px; margin-top:10px; color:#a0aec0;">Please allow camera access when prompted</p>
-                `;
+            newLoading.innerHTML = `<p>⏳ Loading camera...</p><p style="font-size:12px; margin-top:10px; color:#a0aec0;">Please allow camera access</p>`;
             scannerDiv.appendChild(newLoading);
 
             try {
                 html5QrCode = new Html5Qrcode('scanner');
                 const loadingEl = document.getElementById('loading');
-                if (loadingEl) {
-                    loadingEl.innerHTML = '<p>📷 Starting camera...</p>';
-                }
+                if (loadingEl) loadingEl.innerHTML = '<p>📷 Starting camera...</p>';
 
-                const config = {
-                    fps: 10,
-                    qrbox: { width: 250, height: 250 },
-                    aspectRatio: 1.0
-                };
+                const config = { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 };
 
-                html5QrCode.start({ facingMode: 'environment' },
-                    config,
-                    onScanSuccess,
-                    onScanError
-                ).then(() => {
-                    const loadingEl = document.getElementById('loading');
-                    if (loadingEl) loadingEl.style.display = 'none';
-                }).catch((err) => {
-                    const loadingEl = document.getElementById('loading');
-                    if (loadingEl) {
-                        loadingEl.innerHTML = `
+                html5QrCode.start({ facingMode: 'environment' }, config, onScanSuccess, onScanError)
+                    .then(() => {
+                        const loadingEl = document.getElementById('loading');
+                        if (loadingEl) loadingEl.style.display = 'none';
+                    })
+                    .catch((err) => {
+                        const loadingEl = document.getElementById('loading');
+                        if (loadingEl) {
+                            loadingEl.innerHTML = `
                                 <p style="color:#e53e3e;">❌ Camera error</p>
-                                <p style="font-size:12px; color:#718096;">${err.message || 'Please make sure you have a camera'}</p>
-                                <button onclick="initializeScanner()" class="btn btn-primary" style="margin-top:10px;">
-                                    🔄 Retry
-                                </button>
+                                <p style="font-size:12px; color:#718096;">${err.message}</p>
+                                <button onclick="initializeScanner()" class="btn btn-primary" style="margin-top:10px;">🔄 Retry</button>
                             `;
-                    }
-                });
+                        }
+                    });
 
             } catch (error) {
-                console.error('Scanner init error:', error);
                 const loadingEl = document.getElementById('loading');
                 if (loadingEl) {
-                    loadingEl.innerHTML = `
-                            <p style="color:#e53e3e;">❌ Scanner not supported</p>
-                            <p style="font-size:12px; color:#718096;">Please use a modern browser with camera support</p>
-                        `;
+                    loadingEl.innerHTML = `<p style="color:#e53e3e;">❌ Scanner not supported</p>`;
                 }
             }
         }
@@ -617,20 +627,15 @@
             isProcessing = true;
 
             try {
-                if (html5QrCode) {
-                    html5QrCode.stop().catch(() => {});
-                }
+                if (html5QrCode) html5QrCode.stop().catch(() => {});
 
                 let itemId = decodedText;
-                // Check if it's a URL with an ID parameter
                 try {
                     if (decodedText.includes('?id=')) {
                         const url = new URL(decodedText);
                         itemId = url.searchParams.get('id') || decodedText;
                     }
-                } catch (e) {
-                    // Not a URL, use as is
-                }
+                } catch (e) {}
 
                 console.log('📱 Scanned:', itemId);
                 lookupItem(itemId);
@@ -647,9 +652,7 @@
             }
         }
 
-        function onScanError(error) {
-            // This is called frequently - ignore
-        }
+        function onScanError(error) {}
 
         function restartScanner() {
             document.getElementById('result').style.display = 'none';
@@ -661,9 +664,7 @@
                 html5QrCode.stop().then(() => {
                     html5QrCode.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 250, height: 250 } },
                         onScanSuccess, onScanError);
-                }).catch(() => {
-                    initializeScanner();
-                });
+                }).catch(() => initializeScanner());
             } else {
                 initializeScanner();
             }
@@ -683,52 +684,51 @@
             currentItemId = itemId;
 
             try {
-                const item = await getItemById(itemId);
-                currentItemData = item;
+                // Fetch latest data from Google Sheets
+                await fetchSheetData();
+                const item = getItemFromSheet(itemId);
 
                 if (!item) {
                     itemTitle.textContent = '🔵 New Item Detected!';
                     itemDetails.innerHTML = `
-                            <p><strong>ID:</strong> ${itemId}</p>
-                            <p><strong>Status:</strong> Not registered yet</p>
-                            <p style="color: #718096; margin-top: 10px;">Click "Register" below to add this item.</p>
-                        `;
+                        <p><strong>ID:</strong> ${itemId}</p>
+                        <p><strong>Status:</strong> Not registered yet</p>
+                        <p style="color: #718096; margin-top: 10px;">Click "Register" below to add this item.</p>
+                        <p style="color: #e53e3e; font-size: 12px; margin-top: 10px;">
+                            ⚠️ This will require manual entry in Google Sheets.
+                        </p>
+                    `;
                     registerBtn.style.display = 'inline-block';
                     updateBtn.style.display = 'none';
                     return;
                 }
 
+                const statusClass = item.status === 'registered' || item.status === 'active' ? 'badge-green' : 'badge-red';
+
+                itemTitle.textContent = `✅ ${item.category || 'Item'}`;
+                itemDetails.innerHTML = `
+                    <p><strong>ID:</strong> ${item.unique_id || itemId}</p>
+                    <p><strong>Category:</strong> ${item.category || 'N/A'}</p>
+                    <p><strong>Serial:</strong> ${item.serial_number || 'N/A'}</p>
+                    <p><strong>Assigned To:</strong> ${item.assigned_to || 'Unassigned'}</p>
+                    <p><strong>Location:</strong> ${item.location || 'Unknown'}</p>
+                    <p><strong>Quantity:</strong> ${item.quantity || 1}</p>
+                    <p><strong>Status:</strong> <span class="badge ${statusClass}">${item.status || 'unregistered'}</span></p>
+                    <p><strong>Registered:</strong> ${item.registered_at || 'N/A'}</p>
+                `;
+
                 if (item.status === 'registered' || item.status === 'active') {
-                    itemTitle.textContent = `✅ ${item.category || 'Item'}`;
-                    itemDetails.innerHTML = `
-                            <p><strong>ID:</strong> ${item.unique_id}</p>
-                            <p><strong>Category:</strong> ${item.category || 'N/A'}</p>
-                            <p><strong>Serial:</strong> ${item.serial_number || 'N/A'}</p>
-                            <p><strong>Assigned To:</strong> ${item.assigned_to || 'Unassigned'}</p>
-                            <p><strong>Location:</strong> ${item.location || 'Unknown'}</p>
-                            <p><strong>Quantity:</strong> ${item.quantity || 1}</p>
-                            <p><strong>Status:</strong> <span class="status-badge status-registered">${item.status}</span></p>
-                            <p><strong>Registered:</strong> ${new Date(item.registered_at).toLocaleDateString()}</p>
-                        `;
                     registerBtn.style.display = 'none';
                     updateBtn.style.display = 'inline-block';
-                    return;
+                } else {
+                    registerBtn.style.display = 'inline-block';
+                    updateBtn.style.display = 'none';
                 }
-
-                // Unregistered
-                itemTitle.textContent = '📋 Item Found - Needs Registration';
-                itemDetails.innerHTML = `
-                        <p><strong>ID:</strong> ${item.unique_id}</p>
-                        <p><strong>Category:</strong> ${item.category || 'N/A'}</p>
-                        <p><strong>Status:</strong> <span class="status-badge status-unregistered">Unregistered</span></p>
-                    `;
-                registerBtn.style.display = 'inline-block';
-                updateBtn.style.display = 'none';
 
             } catch (error) {
                 console.error('Lookup error:', error);
                 itemTitle.textContent = '⚠️ Error';
-                itemDetails.innerHTML = `<p style="color:#e53e3e;">Error connecting to database. Please try again.</p>`;
+                itemDetails.innerHTML = `<p style="color:#e53e3e;">Error connecting to Google Sheets: ${error.message}</p>`;
                 showToast('❌ Database connection error', true);
             }
         }
@@ -737,7 +737,6 @@
         // START
         // =============================================
         document.addEventListener('DOMContentLoaded', function() {
-            // Check if we have an ID in the URL
             const params = new URLSearchParams(window.location.search);
             const id = params.get('id');
             if (id) {
@@ -745,13 +744,11 @@
                 lookupItem(id);
                 return;
             }
-
-            // Otherwise start the scanner
             initializeScanner();
         });
 
-        console.log('🚀 Inventory Scanner loaded!');
-        console.log('📡 Supabase URL:', SUPABASE_URL);
+        console.log('🚀 Inventory Scanner loaded with Google Sheets!');
+        console.log('📊 Sheet ID:', SHEET_ID);
     </script>
 </body>
 </html>
