@@ -1,7 +1,7 @@
 // Supabase Configuration
 // REPLACE THESE WITH YOUR SUPABASE CREDENTIALS
 const SUPABASE_URL = 'https://tadreebefanniofficesproject.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_pub1ishable_KmvSd5y3hY0cXVEudzhP8w_B9-P4_';
+const SUPABASE_ANON_KEY = 'sb_publishable_KmvSd5y3hYOcXVEUdzhP8w_B9-P4MTc';
 
 // Initialize Supabase client
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
