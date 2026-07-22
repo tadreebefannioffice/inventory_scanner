@@ -362,13 +362,11 @@
         // GOOGLE SHEETS CONFIGURATION
         // =============================================
 
-        // REPLACE THIS WITH YOUR ACTUAL SHEET ID
-        // Find it in your sheet's URL: https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/edit
         const SHEET_ID = '1gCUrMIfLzoRa_xGyxC4P11O7A5_GtPKfH1ZjF8roR6U';
-
-        // REPLACE THIS WITH YOUR PUBLISHED SHEET URL
-        // File → Share → Publish to web → Copy the link
         const PUBLISHED_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQSCd01INOuD9wKuGp41yB1KtgNDTAdPKpNrZWKv3oaODss2-putL73f3phWpB16TfE2rre2tdeyM9R/pubhtml';
+
+        // REPLACE THIS WITH YOUR APPS SCRIPT WEB APP URL
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz60JCWeOSGU06w_WLqPOPAwnhwW2ZmPKCxDbrQ1CLw14EjnT7SKXexuPR7j_S-i8IR/exec';
 
         // =============================================
         // STATE
@@ -386,11 +384,9 @@
         // Fetch all data from Google Sheets
         async function fetchSheetData() {
             try {
-                // Use the published CSV URL
                 const response = await fetch(PUBLISHED_URL);
                 const csvText = await response.text();
 
-                // Parse CSV
                 const lines = csvText.split('\n');
                 const headers = lines[0].split(',').map(h => h.trim());
 
@@ -419,47 +415,58 @@
         }
 
         // =============================================
-        // ADD NEW ITEM TO GOOGLE SHEETS (via Form)
+        // ADD ITEM TO GOOGLE SHEETS (AUTOMATED)
         // =============================================
+
         async function addItemToSheet(itemData) {
             try {
-                // Google Sheets doesn't allow direct API writes without OAuth.
-                // Instead, we'll use a Google Apps Script web app.
+                console.log('📝 Sending item to Google Sheets:', itemData);
 
-                // For now, we'll simulate the addition and log to console.
-                // The user will need to manually add the row or we'll set up Apps Script.
+                const response = await fetch(APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(itemData)
+                });
 
-                console.log('📝 Item to add:', itemData);
-                alert('📝 Please add this item manually to your Google Sheet:\n\n' +
-                    'ID: ' + itemData.unique_id + '\n' +
-                    'Category: ' + itemData.category + '\n' +
-                    'Serial: ' + itemData.serial_number + '\n' +
-                    'Assigned To: ' + itemData.assigned_to + '\n' +
-                    'Location: ' + itemData.location + '\n\n' +
-                    'The data will be available after you add it to the sheet.');
-
-                // Simulate success
+                console.log('✅ Item sent to Google Sheets!');
                 return { success: true, data: itemData };
+
             } catch (error) {
-                console.error('Error adding item:', error);
+                console.error('❌ Error adding item:', error);
                 return { success: false, error: error.message };
             }
         }
 
         // =============================================
-        // UPDATE ITEM IN GOOGLE SHEETS
+        // UPDATE ITEM IN GOOGLE SHEETS (AUTOMATED)
         // =============================================
+
         async function updateItemInSheet(itemId, updateData) {
             try {
                 console.log('✏️ Updating item:', itemId, updateData);
-                alert('✏️ Please update this item manually in your Google Sheet:\n\n' +
-                    'ID: ' + itemId + '\n' +
-                    'Field: ' + Object.keys(updateData)[0] + '\n' +
-                    'New Value: ' + Object.values(updateData)[0]);
 
+                const payload = {
+                    unique_id: itemId,
+                    ...updateData
+                };
+
+                const response = await fetch(APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                console.log('✅ Item update sent to Google Sheets!');
                 return { success: true };
+
             } catch (error) {
-                console.error('Error updating item:', error);
+                console.error('❌ Error updating item:', error);
                 return { success: false, error: error.message };
             }
         }
@@ -531,7 +538,7 @@
                 });
 
                 if (result && result.success) {
-                    showToast('✅ Item registered! Please check your Google Sheet.');
+                    showToast('✅ Item registered successfully!');
                     closeModal('registerModal');
                     await lookupItem(itemId);
                 } else {
@@ -694,9 +701,6 @@
                         <p><strong>ID:</strong> ${itemId}</p>
                         <p><strong>Status:</strong> Not registered yet</p>
                         <p style="color: #718096; margin-top: 10px;">Click "Register" below to add this item.</p>
-                        <p style="color: #e53e3e; font-size: 12px; margin-top: 10px;">
-                            ⚠️ This will require manual entry in Google Sheets.
-                        </p>
                     `;
                     registerBtn.style.display = 'inline-block';
                     updateBtn.style.display = 'none';
