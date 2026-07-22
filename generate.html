@@ -12,7 +12,8 @@
             grid-template-columns: 1fr 1fr;
             gap: 15px;
         }
-        .form-group select {
+        .form-group select,
+        .form-group input[type="number"] {
             width: 100%;
             padding: 12px;
             border: 2px solid #e2e8f0;
@@ -20,9 +21,16 @@
             font-size: 16px;
             background: white;
         }
-        .form-group select:focus {
+        .form-group select:focus,
+        .form-group input[type="number"]:focus {
             outline: none;
             border-color: #4299e1;
+        }
+        .form-group small {
+            color: #718096;
+            display: block;
+            margin-top: 5px;
+            font-size: 12px;
         }
         .qr-grid {
             display: grid;
@@ -51,6 +59,15 @@
             gap: 10px;
             margin-top: 20px;
             justify-content: center;
+        }
+        .size-label {
+            font-weight: 600;
+            color: #2d3748;
+        }
+        .size-hint {
+            font-size: 11px;
+            color: #718096;
+            margin-left: 5px;
         }
         @media (max-width: 600px) {
             .control-grid {
@@ -108,16 +125,30 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="qrSize">QR Code Size:</label>
+                    <label for="qrSize">QR Code Size (pixels):</label>
                     <select id="qrSize">
-                        <option value="100">Small (100x100)</option>
-                        <option value="150">Medium-Small (150x150)</option>
-                        <option value="200" selected>Medium (200x200)</option>
-                        <option value="250">Medium-Large (250x250)</option>
-                        <option value="300">Large (300x300)</option>
-                        <option value="400">XL (400x400)</option>
-                        <option value="500">XXL (500x500)</option>
+                        <optgroup label="⭐ Tiny (for small items)">
+                            <option value="20">20x20 - Micro</option>
+                            <option value="30">30x30 - Extra Mini</option>
+                            <option value="40">40x40 - Mini</option>
+                            <option value="50">50x50 - Tiny</option>
+                            <option value="60">60x60 - Very Small</option>
+                            <option value="80">80x80 - Extra Small</option>
+                        </optgroup>
+                        <optgroup label="📏 Standard">
+                            <option value="100">100x100 - Small</option>
+                            <option value="150">150x150 - Medium Small</option>
+                            <option value="200" selected>200x200 - Medium (Recommended)</option>
+                            <option value="250">250x250 - Medium Large</option>
+                            <option value="300">300x300 - Large</option>
+                        </optgroup>
+                        <optgroup label="🖼️ Extra Large">
+                            <option value="400">400x400 - XL</option>
+                            <option value="500">500x500 - XXL</option>
+                            <option value="600">600x600 - XXXL</option>
+                        </optgroup>
                     </select>
+                    <small>💡 200x200 is best for standard stickers. Use 50x50 for tiny equipment.</small>
                 </div>
 
                 <div class="form-group">
@@ -129,6 +160,7 @@
                         <option value="darkred">Dark Red</option>
                         <option value="purple">Purple</option>
                         <option value="orange">Orange</option>
+                        <option value="#1a202c">Dark Gray</option>
                     </select>
                 </div>
 
@@ -140,6 +172,7 @@
                         <option value="4">4 columns</option>
                         <option value="5">5 columns</option>
                         <option value="6">6 columns</option>
+                        <option value="8">8 columns</option>
                     </select>
                 </div>
             </div>
@@ -220,6 +253,7 @@
                     <img src="${qrUrl}" alt="QR Code for ${uniqueId}" loading="lazy">
                     <strong>${uniqueId}</strong>
                     <br><small style="color:#718096;">${category}</small>
+                    <br><span class="size-hint">${size}x${size}px</span>
                 `;
                 gridDiv.appendChild(div);
 
@@ -239,7 +273,7 @@
             }
 
             outputDiv.scrollIntoView({ behavior: 'smooth' });
-            showToast(`✅ Generated ${generatedQRs.length} QR codes!`);
+            showToast(`✅ Generated ${generatedQRs.length} QR codes at ${size}x${size}px!`);
         }
 
         function downloadAllQRs() {
@@ -401,7 +435,7 @@
         `;
         document.head.appendChild(style);
 
-        console.log('✅ QR Generator loaded!');
+        console.log('✅ QR Generator loaded with tiny sizes!');
     </script>
 </body>
 </html>
