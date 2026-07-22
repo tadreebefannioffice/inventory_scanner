@@ -1,111 +1,560 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Inventory Scanner</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            padding: 15px;
+            color: #333;
+        }
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 16px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #2d3748;
+            font-size: 24px;
+            margin-bottom: 5px;
+            text-align: center;
+        }
+        .subtitle {
+            color: #718096;
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        #scanner {
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #000;
+            min-height: 300px;
+        }
+        #scanner video {
+            width: 100% !important;
+            height: auto !important;
+        }
+        #result {
+            background: #f7fafc;
+            padding: 20px;
+            border-radius: 12px;
+            margin-top: 20px;
+            border: 2px solid #e2e8f0;
+            display: none;
+        }
+        #result h2 {
+            color: #2d3748;
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+        #itemDetails p {
+            margin: 5px 0;
+            color: #4a5568;
+            line-height: 1.6;
+        }
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 5px 5px 5px 0;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: #4299e1;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #3182ce;
+        }
+        .btn-secondary {
+            background: #48bb78;
+            color: white;
+        }
+        .btn-secondary:hover {
+            background: #38a169;
+        }
+        .btn-outline {
+            background: transparent;
+            border: 2px solid #a0aec0;
+            color: #4a5568;
+        }
+        .btn-outline:hover {
+            background: #edf2f7;
+        }
+        .btn-success {
+            background: #38a169;
+            color: white;
+        }
+        .btn-danger {
+            background: #e53e3e;
+            color: white;
+        }
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .status-registered {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+        .status-unregistered {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+        .nav-links {
+            margin-top: 20px;
+            text-align: center;
+        }
+        .nav-links a {
+            color: #4299e1;
+            text-decoration: none;
+            margin: 0 10px;
+        }
+        .nav-links a:hover {
+            text-decoration: underline;
+        }
+        #loading {
+            text-align: center;
+            padding: 40px;
+            color: #718096;
+        }
+        .error-msg {
+            color: #e53e3e;
+            padding: 20px;
+            text-align: center;
+        }
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #48bb78;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            animation: slideUp 0.3s ease-out;
+            max-width: 90%;
+            text-align: center;
+        }
+        .toast.error {
+            background: #e53e3e;
+        }
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+        }
+        @media (max-width: 600px) {
+            .container {
+                padding: 15px;
+            }
+            h1 {
+                font-size: 20px;
+            }
+            .btn {
+                padding: 12px 16px;
+                font-size: 14px;
+            }
+        }
+    </style>
 </head>
 <body>
-    <h1>📦 Inventory Scanner</h1>
-    
-    <div id="scanner" style="width:100%; max-width:400px; margin:20px auto;"></div>
-    
-    <div id="result" style="margin-top:20px; padding:15px; border:1px solid #ccc; display:none;">
-        <h2 id="itemTitle"></h2>
-        <p id="itemDetails"></p>
-        <button onclick="registerItem()" id="registerBtn" style="display:none;">Register This Item</button>
-        <button onclick="updateStock()" id="updateBtn" style="display:none;">Update Stock</button>
+
+    <div class="container">
+        <h1>📦 Inventory Scanner</h1>
+        <p class="subtitle">Scan a QR code to view or register items</p>
+
+        <!-- ========================================== -->
+        <!-- SCANNER AREA                               -->
+        <!-- ========================================== -->
+        <div id="scanner">
+            <div id="loading">
+                <p>⏳ Loading camera...</p>
+                <p style="font-size:12px; margin-top:10px; color:#a0aec0;">Please allow camera access when prompted</p>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- RESULT AREA                                -->
+        <!-- ========================================== -->
+        <div id="result">
+            <h2 id="itemTitle"></h2>
+            <div id="itemDetails"></div>
+            <button id="registerBtn" class="btn btn-primary" style="display:none;" onclick="registerItem()">
+                ➕ Register This Item
+            </button>
+            <button id="updateBtn" class="btn btn-secondary" style="display:none;" onclick="updateItem()">
+                ✏️ Update Item
+            </button>
+            <button class="btn btn-outline" onclick="restartScanner()">
+                📷 Scan Again
+            </button>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- NAVIGATION                                 -->
+        <!-- ========================================== -->
+        <div class="nav-links">
+            <a href="generate.html">🏷️ Generate QR Codes</a> |
+            <a href="dashboard.html">📊 Dashboard</a>
+        </div>
     </div>
 
-    <script>
-        // Import Supabase client (free database)
-        const { createClient } = supabase;
-        const supabaseUrl = 'YOUR_SUPABASE_URL'; // Get from supabase.com
-        const supabaseKey = 'YOUR_SUPABASE_ANON_KEY';
-        const supabaseClient = createClient(supabaseUrl, supabaseKey);
-
-        // Start scanner
-        const scanner = new Html5Qrcode("scanner");
-        scanner.start(
-            { facingMode: "environment" },
-            { fps: 10, qrbox: { width: 250, height: 250 } },
-            async (decodedText) => {
-                // decodedText = "LAPTOP-001" (or full URL)
-                const itemId = decodedText.split('id=')[1] || decodedText;
-                await lookupItem(itemId);
-                scanner.stop();
-            },
-            (error) => {}
-        );
-
-        async function lookupItem(itemId) {
-            // Query Supabase database
-            const { data, error } = await supabaseClient
-                .from('items')
-                .select('*')
-                .eq('unique_id', itemId);
-
-            const item = data[0];
-            document.getElementById('result').style.display = 'block';
-
-            if (!item) {
-                // NEW ITEM - Not in database yet
-                document.getElementById('itemTitle').textContent = '🔵 New Item Detected!';
-                document.getElementById('itemDetails').textContent = `ID: ${itemId} - This item hasn't been registered yet.`;
-                document.getElementById('registerBtn').style.display = 'inline-block';
-                document.getElementById('updateBtn').style.display = 'none';
-                window.currentItemId = itemId;
-            } else if (item.status === 'registered') {
-                // EXISTING ITEM - Show details
-                document.getElementById('itemTitle').textContent = `✅ ${item.category}`;
-                document.getElementById('itemDetails').textContent = `
-                    Serial: ${item.serial_number || 'N/A'}
-                    Assigned to: ${item.assigned_to || 'Unassigned'}
-                    Location: ${item.location || 'Unknown'}
-                    Status: ${item.status}
-                `;
-                document.getElementById('registerBtn').style.display = 'none';
-                document.getElementById('updateBtn').style.display = 'inline-block';
-                window.currentItemId = itemId;
-            }
-        }
-
-        async function registerItem() {
-            const serial = prompt('Enter serial number:');
-            const assignedTo = prompt('Assigned to (person/department):');
-            
-            const { error } = await supabaseClient
-                .from('items')
-                .insert([
-                    { 
-                        unique_id: window.currentItemId,
-                        category: 'Unknown (Scan to update)',
-                        serial_number: serial,
-                        assigned_to: assignedTo,
-                        status: 'registered',
-                        registered_at: new Date()
-                    }
-                ]);
-            
-            if (!error) {
-                alert('✅ Item registered successfully!');
-                location.reload();
-            }
-        }
-
-        async function updateStock() {
-            const newQty = prompt('Enter new quantity:');
-            const { error } = await supabaseClient
-                .from('items')
-                .update({ quantity: newQty })
-                .eq('unique_id', window.currentItemId);
-            
-            if (!error) {
-                alert('✅ Stock updated!');
-                location.reload();
-            }
-        }
+    <!-- ========================================== -->
+    <!-- LIBRARIES                                  -->
+    <!-- ========================================== -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js">
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
+    </script>
+
+    <!-- ========================================== -->
+    <!-- APP CONFIG                                 -->
+    <!-- ========================================== -->
+    <script>
+        // =============================================
+        // SUPABASE CONFIGURATION
+        // =============================================
+        const SUPABASE_URL = 'https://tadreebefanniofficesproject.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_kmv5d3hyY0cXVEUdzhP8w_B9-P4_';
+
+        // =============================================
+        // INITIALIZE SUPABASE
+        // =============================================
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const TABLE_NAME = 'items';
+
+        // =============================================
+        // STATE
+        // =============================================
+        let html5QrCode = null;
+        let currentItemId = null;
+        let isProcessing = false;
+
+        // =============================================
+        // HELPER FUNCTIONS
+        // =============================================
+        async function getItemById(itemId) {
+            try {
+                const { data, error } = await supabaseClient
+                    .from(TABLE_NAME)
+                    .select('*')
+                    .eq('unique_id', itemId)
+                    .maybeSingle();
+                if (error) return null;
+                return data;
+            } catch (e) { return null; }
+        }
+
+        async function saveItem(itemData) {
+            try {
+                const { data, error } = await supabaseClient
+                    .from(TABLE_NAME)
+                    .insert([itemData])
+                    .select();
+                if (error) throw new Error(error.message);
+                return { success: true, data: data };
+            } catch (e) {
+                console.error('Save error:', e);
+                throw e;
+            }
+        }
+
+        async function updateItemData(itemId, updateData) {
+            try {
+                const { data, error } = await supabaseClient
+                    .from(TABLE_NAME)
+                    .update(updateData)
+                    .eq('unique_id', itemId)
+                    .select();
+                if (error) throw new Error(error.message);
+                return data;
+            } catch (e) {
+                console.error('Update error:', e);
+                throw e;
+            }
+        }
+
+        function generateUniqueId(itemName, count) {
+            const prefix = itemName.substring(0, 3).toUpperCase();
+            const paddedCount = String(count).padStart(3, '0');
+            return `${prefix}-${paddedCount}`;
+        }
+
+        function isValidUrl(string) {
+            try { new URL(string); return true; } catch (_) { return false; }
+        }
+
+        // =============================================
+        // TOAST NOTIFICATION
+        // =============================================
+        function showToast(message, isError = false) {
+            const old = document.querySelector('.toast');
+            if (old) old.remove();
+            const toast = document.createElement('div');
+            toast.className = 'toast' + (isError ? ' error' : '');
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.5s';
+                setTimeout(() => toast.remove(), 500);
+            }, 3000);
+        }
+
+        // =============================================
+        // SCANNER FUNCTIONS
+        // =============================================
+        function initializeScanner() {
+            const scannerDiv = document.getElementById('scanner');
+            const loadingDiv = document.getElementById('loading');
+
+            try {
+                html5QrCode = new Html5Qrcode('scanner');
+                loadingDiv.innerHTML = '<p>📷 Starting camera...</p>';
+
+                const config = {
+                    fps: 10,
+                    qrbox: { width: 250, height: 250 },
+                    aspectRatio: 1.0
+                };
+
+                html5QrCode.start({ facingMode: 'environment' },
+                    config,
+                    onScanSuccess,
+                    onScanError
+                ).then(() => {
+                    loadingDiv.style.display = 'none';
+                }).catch((err) => {
+                    loadingDiv.innerHTML = `
+                            <p style="color:#e53e3e;">❌ Camera error</p>
+                            <p style="font-size:12px; color:#718096;">${err.message || 'Please make sure you have a camera'}</p>
+                            <button onclick="initializeScanner()" class="btn btn-primary" style="margin-top:10px;">
+                                🔄 Retry
+                            </button>
+                        `;
+                });
+
+            } catch (error) {
+                console.error('Scanner init error:', error);
+                loadingDiv.innerHTML = `
+                        <p style="color:#e53e3e;">❌ Scanner not supported</p>
+                        <p style="font-size:12px; color:#718096;">Please use a modern browser with camera support</p>
+                    `;
+            }
+        }
+
+        function onScanSuccess(decodedText) {
+            if (isProcessing) return;
+            isProcessing = true;
+
+            try {
+                if (html5QrCode) {
+                    html5QrCode.stop().catch(() => {});
+                }
+
+                let itemId = decodedText;
+                if (isValidUrl(decodedText)) {
+                    const url = new URL(decodedText);
+                    itemId = url.searchParams.get('id') || decodedText;
+                }
+
+                console.log('📱 Scanned:', itemId);
+                lookupItem(itemId);
+
+            } catch (error) {
+                console.error('Scan error:', error);
+                isProcessing = false;
+                setTimeout(() => {
+                    if (html5QrCode) {
+                        html5QrCode.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 250, height: 250 } },
+                            onScanSuccess, onScanError);
+                    }
+                }, 2000);
+            }
+        }
+
+        function onScanError(error) {
+            // This is called frequently - ignore
+        }
+
+        function restartScanner() {
+            document.getElementById('result').style.display = 'none';
+            isProcessing = false;
+            if (html5QrCode) {
+                html5QrCode.stop().then(() => {
+                    html5QrCode.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 250, height: 250 } },
+                        onScanSuccess, onScanError);
+                }).catch(() => {});
+            }
+        }
+
+        // =============================================
+        // LOOKUP ITEM
+        // =============================================
+        async function lookupItem(itemId) {
+            const resultDiv = document.getElementById('result');
+            const itemTitle = document.getElementById('itemTitle');
+            const itemDetails = document.getElementById('itemDetails');
+            const registerBtn = document.getElementById('registerBtn');
+            const updateBtn = document.getElementById('updateBtn');
+
+            resultDiv.style.display = 'block';
+            currentItemId = itemId;
+
+            try {
+                const item = await getItemById(itemId);
+
+                if (!item) {
+                    itemTitle.textContent = '🔵 New Item Detected!';
+                    itemDetails.innerHTML = `
+                            <p><strong>ID:</strong> ${itemId}</p>
+                            <p><strong>Status:</strong> Not registered yet</p>
+                            <p style="color: #718096; margin-top: 10px;">Click "Register" below to add this item.</p>
+                        `;
+                    registerBtn.style.display = 'inline-block';
+                    updateBtn.style.display = 'none';
+                    return;
+                }
+
+                if (item.status === 'registered' || item.status === 'active') {
+                    itemTitle.textContent = `✅ ${item.category || 'Item'}`;
+                    itemDetails.innerHTML = `
+                            <p><strong>ID:</strong> ${item.unique_id}</p>
+                            <p><strong>Category:</strong> ${item.category || 'N/A'}</p>
+                            <p><strong>Serial:</strong> ${item.serial_number || 'N/A'}</p>
+                            <p><strong>Assigned To:</strong> ${item.assigned_to || 'Unassigned'}</p>
+                            <p><strong>Location:</strong> ${item.location || 'Unknown'}</p>
+                            <p><strong>Status:</strong> <span class="status-badge status-registered">${item.status}</span></p>
+                            <p><strong>Registered:</strong> ${new Date(item.registered_at).toLocaleDateString()}</p>
+                        `;
+                    registerBtn.style.display = 'none';
+                    updateBtn.style.display = 'inline-block';
+                    return;
+                }
+
+                // Unregistered
+                itemTitle.textContent = '📋 Item Found - Needs Registration';
+                itemDetails.innerHTML = `
+                        <p><strong>ID:</strong> ${item.unique_id}</p>
+                        <p><strong>Category:</strong> ${item.category || 'N/A'}</p>
+                        <p><strong>Status:</strong> <span class="status-badge status-unregistered">Unregistered</span></p>
+                    `;
+                registerBtn.style.display = 'inline-block';
+                updateBtn.style.display = 'none';
+
+            } catch (error) {
+                console.error('Lookup error:', error);
+                itemTitle.textContent = '⚠️ Error';
+                itemDetails.innerHTML = `<p style="color:#e53e3e;">Error connecting to database.</p>`;
+            }
+        }
+
+        // =============================================
+        // REGISTER ITEM
+        // =============================================
+        async function registerItem() {
+            if (!currentItemId) return;
+
+            const category = prompt('Category (e.g., Laptop, Camera):') || 'Uncategorized';
+            const serial = prompt('Serial number:') || 'N/A';
+            const assignedTo = prompt('Assigned to (person/department):') || 'Unassigned';
+            const location = prompt('Location:') || 'Unknown';
+
+            try {
+                await saveItem({
+                    unique_id: currentItemId,
+                    category: category,
+                    serial_number: serial,
+                    assigned_to: assignedTo,
+                    location: location,
+                    status: 'registered',
+                    quantity: 1,
+                    registered_at: new Date().toISOString()
+                });
+
+                showToast('✅ Item registered successfully!');
+                await lookupItem(currentItemId);
+
+            } catch (error) {
+                showToast('❌ Error registering item: ' + error.message, true);
+            }
+        }
+
+        // =============================================
+        // UPDATE ITEM
+        // =============================================
+        async function updateItem() {
+            if (!currentItemId) return;
+
+            const field = prompt('What to update?\nOptions: quantity, location, assigned_to, serial_number');
+            if (!field) return;
+
+            const value = prompt(`New ${field}:`);
+            if (value === null) return;
+
+            try {
+                await updateItemData(currentItemId, { [field]: value });
+                showToast('✅ Item updated!');
+                await lookupItem(currentItemId);
+            } catch (error) {
+                showToast('❌ Error updating item', true);
+            }
+        }
+
+        // =============================================
+        // START
+        // =============================================
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if we have an ID in the URL
+            const params = new URLSearchParams(window.location.search);
+            const id = params.get('id');
+            if (id) {
+                document.getElementById('loading').innerHTML = '<p>📱 Looking up item...</p>';
+                lookupItem(id);
+                return;
+            }
+
+            // Otherwise start the scanner
+            initializeScanner();
+        });
+
+        console.log('🚀 Inventory Scanner loaded!');
+        console.log('📡 Supabase URL:', SUPABASE_URL);
+    </script>
 </body>
 </html>
