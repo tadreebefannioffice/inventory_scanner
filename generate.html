@@ -41,25 +41,23 @@
             <div id="qrGrid" class="qr-grid"></div>
 
             <!-- ========================================== -->
-            <!-- ACTION BUTTONS (ALL IN ONE)                -->
+            <!-- ACTION BUTTONS                             -->
             <!-- ========================================== -->
             <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; justify-content: center;">
-                <button onclick="downloadAllQRs()" class="btn btn-primary" style="font-size: 16px; padding: 12px 24px;">
-                    ⬇️ Download All QR Codes to PC
+                <button onclick="downloadAllQRs()" class="btn btn-primary">
+                    ⬇️ Download All QR Codes
                 </button>
-                <button onclick="downloadQRZip()" class="btn btn-secondary" style="font-size: 16px; padding: 12px 24px;">
-                    📦 Download All as ZIP
-                </button>
-                <button onclick="window.print()" class="btn btn-outline" style="font-size: 16px; padding: 12px 24px;">
+                <button onclick="window.print()" class="btn btn-secondary">
                     🖨️ Print QR Codes
                 </button>
-                <button onclick="saveToDatabase()" class="btn btn-success" style="font-size: 16px; padding: 12px 24px;">
-                    💾 Save to Database
+                <button onclick="saveToDatabase()" class="btn btn-success" id="saveBtn">
+                    💾 Save All to Inventory
                 </button>
             </div>
             <p style="margin-top: 10px; color: #718096; font-size: 14px; text-align: center;">
-                💡 Click "Download All QR Codes" to save PNG files directly to your PC
+                💡 Click "Save All to Inventory" to store these items in your database
             </p>
+            <div id="saveStatus" style="margin-top: 10px; padding: 10px; border-radius: 8px; display: none;"></div>
         </div>
 
         <p style="margin-top: 20px">
@@ -121,8 +119,7 @@
                 const uniqueId = generateUniqueId(itemName, i);
                 const fullUrl = `${baseUrl}?id=${uniqueId}`;
 
-                // Use a higher quality QR code
-                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(fullUrl)}`;
+                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(fullUrl)}`;
 
                 const div = document.createElement('div');
                 div.className = 'qr-item';
@@ -131,10 +128,6 @@
                         <img src="${qrUrl}" alt="QR Code for ${uniqueId}" loading="lazy" id="qr-${uniqueId}">
                         <strong>${uniqueId}</strong>
                         <br><small style="color:#718096;">${category}</small>
-                        <br>
-                        <button onclick="downloadSingleQR('${uniqueId}')" class="btn btn-outline" style="padding: 2px 10px; font-size: 12px; margin-top: 5px;">
-                            ⬇️ Save
-                        </button>
                     `;
                 gridDiv.appendChild(div);
 
@@ -146,6 +139,7 @@
                 });
             }
 
+            // Store items for database save
             window.generatedItems = generatedQRs.map(qr => ({
                 unique_id: qr.id,
                 category: qr.category,
@@ -154,29 +148,11 @@
             }));
 
             outputDiv.scrollIntoView({ behavior: 'smooth' });
-            showToast(`✅ Generated ${generatedQRs.length} QR codes!`);
+            showStatus('success', `✅ Generated ${generatedQRs.length} QR codes! Now click "Save All to Inventory" to store them.`);
         }
 
         // =============================================
-        // DOWNLOAD SINGLE QR CODE (DIRECT DOWNLOAD)
-        // =============================================
-        function downloadSingleQR(uniqueId) {
-            const img = document.getElementById(`qr-${uniqueId}`);
-            if (!img) return;
-
-            // Create direct download link
-            const link = document.createElement('a');
-            link.download = `${uniqueId}.png`;
-            link.href = img.src;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-
-            showToast(`⬇️ Downloaded ${uniqueId}.png`);
-        }
-
-        // =============================================
-        // DOWNLOAD ALL QR CODES (DIRECT DOWNLOAD)
+        // DOWNLOAD ALL QR CODES
         // =============================================
         function downloadAllQRs() {
             if (generatedQRs.length === 0) {
@@ -184,89 +160,27 @@
                 return;
             }
 
-            // Ask where to save
-            const confirmSave = confirm(`Download ${generatedQRs.length} QR codes to your PC?`);
-            if (!confirmSave) return;
-
             let downloaded = 0;
-
-            // Download each QR code
             generatedQRs.forEach((qr, index) => {
-                // Create a temporary link for each QR
                 const link = document.createElement('a');
                 link.download = `${qr.id}.png`;
                 link.href = qr.url;
                 document.body.appendChild(link);
-                
-                // Click with a small delay between downloads
                 setTimeout(() => {
                     link.click();
                     document.body.removeChild(link);
                     downloaded++;
-                    
                     if (downloaded === generatedQRs.length) {
-                        showToast(`✅ Downloaded all ${generatedQRs.length} QR codes to your PC!`);
+                        showStatus('success', `✅ Downloaded all ${generatedQRs.length} QR codes!`);
                     }
-                }, index * 300); // 300ms delay between each download
+                }, index * 300);
             });
-
-            // Show progress
-            showToast(`⏳ Downloading ${generatedQRs.length} QR codes...`);
         }
 
         // =============================================
-        // DOWNLOAD AS ZIP (Using JSZip library)
         // =============================================
-        function downloadQRZip() {
-            if (generatedQRs.length === 0) {
-                alert('No QR codes to download. Generate some first!');
-                return;
-            }
-
-            // Load JSZip library dynamically
-            const script = document.createElement('script');
-            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
-            script.onload = function() {
-                const zip = new JSZip();
-                const imgFolder = zip.folder('QR_Codes');
-
-                let loaded = 0;
-
-                generatedQRs.forEach((qr) => {
-                    // Fetch the image and add to zip
-                    fetch(qr.url)
-                        .then(response => response.blob())
-                        .then(blob => {
-                            imgFolder.file(`${qr.id}.png`, blob);
-                            loaded++;
-                            
-                            if (loaded === generatedQRs.length) {
-                                // Generate and download the zip
-                                zip.generateAsync({ type: 'blob' })
-                                    .then(content => {
-                                        const link = document.createElement('a');
-                                        link.download = `QR_Codes_${new Date().toISOString().split('T')[0]}.zip`;
-                                        link.href = URL.createObjectURL(content);
-                                        document.body.appendChild(link);
-                                        link.click();
-                                        document.body.removeChild(link);
-                                        showToast(`✅ Downloaded ZIP with ${generatedQRs.length} QR codes!`);
-                                    });
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error loading QR:', qr.id, error);
-                            loaded++;
-                        });
-                });
-            };
-            document.head.appendChild(script);
-            
-            showToast(`⏳ Creating ZIP file...`);
-        }
-
+        // SAVE TO DATABASE - FIXED VERSION
         // =============================================
-        // SAVE TO DATABASE
         // =============================================
         async function saveToDatabase() {
             const items = window.generatedItems;
@@ -276,30 +190,39 @@
                 return;
             }
 
-            const confirmSave = confirm(`Save ${items.length} items to the inventory database?`);
-            if (!confirmSave) return;
+            // Show saving status
+            const statusDiv = document.getElementById('saveStatus');
+            statusDiv.style.display = 'block';
+            statusDiv.style.background = '#f0f0f0';
+            statusDiv.style.color = '#333';
+            statusDiv.textContent = `⏳ Saving ${items.length} items to database...`;
 
-            const btn = document.querySelector('.btn-success');
-            if (btn) {
-                btn.disabled = true;
-                btn.textContent = '⏳ Saving...';
-            }
+            // Disable the button
+            const btn = document.getElementById('saveBtn');
+            btn.disabled = true;
+            btn.textContent = '⏳ Saving...';
 
             try {
                 let saved = 0;
                 let errors = 0;
+                let errorMessages = [];
 
                 for (const item of items) {
                     try {
+                        // Check if item already exists
                         const existing = await getItemById(item.unique_id);
+
                         if (!existing) {
+                            // Save new item
                             const result = await saveItem(item);
                             if (result && result.success === false) {
                                 errors++;
+                                errorMessages.push(`${item.unique_id}: Already exists`);
                             } else {
                                 saved++;
                             }
                         } else {
+                            // Item already exists - update it
                             await updateItem(item.unique_id, {
                                 category: item.category,
                                 status: 'unregistered'
@@ -309,75 +232,56 @@
                     } catch (itemError) {
                         console.error('Error saving item:', item.unique_id, itemError);
                         errors++;
+                        errorMessages.push(`${item.unique_id}: ${itemError.message}`);
                     }
                 }
 
-                let message = `✅ ${saved} items saved to inventory!`;
+                // Show final status
+                let message = `✅ ${saved} items saved successfully!`;
                 if (errors > 0) {
-                    message += `\n⚠️ ${errors} items had errors.`;
+                    message += `\n⚠️ ${errors} items had errors: ${errorMessages.join(', ')}`;
+                    statusDiv.style.background = '#fed7d7';
+                    statusDiv.style.color = '#742a2a';
+                } else {
+                    statusDiv.style.background = '#c6f6d5';
+                    statusDiv.style.color = '#22543d';
                 }
+                statusDiv.textContent = message;
                 alert(message);
 
             } catch (error) {
                 console.error('Error saving to database:', error);
-                alert('❌ Error saving to database. Please check your Supabase connection.');
+                statusDiv.style.background = '#fed7d7';
+                statusDiv.style.color = '#742a2a';
+                statusDiv.textContent = `❌ Error: ${error.message}`;
+                alert(`❌ Error saving to database:\n\n${error.message}\n\nPlease check:\n1. Your Supabase connection\n2. That the "items" table exists\n3. Your anon key is correct`);
             }
 
-            if (btn) {
-                btn.disabled = false;
-                btn.textContent = '💾 Save to Database';
-            }
+            // Re-enable the button
+            btn.disabled = false;
+            btn.textContent = '💾 Save All to Inventory';
         }
 
         // =============================================
-        // TOAST NOTIFICATION
+        // SHOW STATUS MESSAGE
         // =============================================
-        function showToast(message) {
-            const oldToast = document.querySelector('.toast-notification');
-            if (oldToast) oldToast.remove();
-
-            const toast = document.createElement('div');
-            toast.className = 'toast-notification';
-            toast.style.cssText = `
-                    position: fixed;
-                    bottom: 20px;
-                    left: 50%;
-                    transform: translateX(-50%);
-                    background: #48bb78;
-                    color: white;
-                    padding: 12px 24px;
-                    border-radius: 8px;
-                    font-weight: 600;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-                    z-index: 1000;
-                    animation: slideUp 0.3s ease-out;
-                    max-width: 90%;
-                    text-align: center;
-                `;
-            toast.textContent = message;
-
-            document.body.appendChild(toast);
-
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                toast.style.transition = 'opacity 0.5s';
-                setTimeout(() => toast.remove(), 500);
-            }, 3000);
+        function showStatus(type, message) {
+            const statusDiv = document.getElementById('saveStatus');
+            statusDiv.style.display = 'block';
+            
+            if (type === 'success') {
+                statusDiv.style.background = '#c6f6d5';
+                statusDiv.style.color = '#22543d';
+            } else if (type === 'error') {
+                statusDiv.style.background = '#fed7d7';
+                statusDiv.style.color = '#742a2a';
+            } else {
+                statusDiv.style.background = '#f0f0f0';
+                statusDiv.style.color = '#333';
+            }
+            
+            statusDiv.textContent = message;
         }
-
-        // =============================================
-        // ADD ANIMATION STYLES
-        // =============================================
-        const style = document.createElement('style');
-        style.textContent = `
-                @keyframes slideUp {
-                    from { opacity: 0; transform: translateX(-50%) translateY(20px); }
-                    to { opacity: 1; transform: translateX(-50%) translateY(0); }
-                }
-            `;
-        document.head.appendChild(style);
-
-        console.log('✅ QR Generator loaded!');
     </script>
 </body>
 </html>
