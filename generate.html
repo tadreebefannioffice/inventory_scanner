@@ -41,24 +41,24 @@
             <div id="qrGrid" class="qr-grid"></div>
 
             <!-- ========================================== -->
-            <!-- ACTION BUTTONS (Print, Download, Save)     -->
+            <!-- ACTION BUTTONS (ALL IN ONE)                -->
             <!-- ========================================== -->
             <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; justify-content: center;">
-                <button onclick="window.print()" class="btn btn-secondary">
+                <button onclick="downloadAllQRs()" class="btn btn-primary" style="font-size: 16px; padding: 12px 24px;">
+                    ⬇️ Download All QR Codes to PC
+                </button>
+                <button onclick="downloadQRZip()" class="btn btn-secondary" style="font-size: 16px; padding: 12px 24px;">
+                    📦 Download All as ZIP
+                </button>
+                <button onclick="window.print()" class="btn btn-outline" style="font-size: 16px; padding: 12px 24px;">
                     🖨️ Print QR Codes
                 </button>
-                <button onclick="downloadAllQRs()" class="btn btn-primary">
-                    📥 Download All QR Codes
-                </button>
-                <button onclick="saveToDatabase()" class="btn btn-success">
-                    💾 Save All to Inventory
-                </button>
-                <button onclick="downloadQRSheet()" class="btn btn-outline">
-                    📄 Download QR Sheet (PDF)
+                <button onclick="saveToDatabase()" class="btn btn-success" style="font-size: 16px; padding: 12px 24px;">
+                    💾 Save to Database
                 </button>
             </div>
             <p style="margin-top: 10px; color: #718096; font-size: 14px; text-align: center;">
-                💡 Print on sticker paper or download images to use later
+                💡 Click "Download All QR Codes" to save PNG files directly to your PC
             </p>
         </div>
 
@@ -111,7 +111,6 @@
             const outputDiv = document.getElementById('qrOutput');
             const gridDiv = document.getElementById('qrGrid');
 
-            // Clear previous results
             gridDiv.innerHTML = '';
             outputDiv.style.display = 'block';
             generatedQRs = [];
@@ -122,10 +121,9 @@
                 const uniqueId = generateUniqueId(itemName, i);
                 const fullUrl = `${baseUrl}?id=${uniqueId}`;
 
-                // Generate QR code using API
+                // Use a higher quality QR code
                 const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(fullUrl)}`;
 
-                // Create QR item element
                 const div = document.createElement('div');
                 div.className = 'qr-item';
                 div.setAttribute('data-id', uniqueId);
@@ -135,12 +133,11 @@
                         <br><small style="color:#718096;">${category}</small>
                         <br>
                         <button onclick="downloadSingleQR('${uniqueId}')" class="btn btn-outline" style="padding: 2px 10px; font-size: 12px; margin-top: 5px;">
-                            ⬇️ Download
+                            ⬇️ Save
                         </button>
                     `;
                 gridDiv.appendChild(div);
 
-                // Store for later use
                 generatedQRs.push({
                     id: uniqueId,
                     url: qrUrl,
@@ -149,7 +146,6 @@
                 });
             }
 
-            // Store items for database save
             window.generatedItems = generatedQRs.map(qr => ({
                 unique_id: qr.id,
                 category: qr.category,
@@ -157,25 +153,21 @@
                 quantity: 1
             }));
 
-            // Scroll to QR codes
             outputDiv.scrollIntoView({ behavior: 'smooth' });
-
-            // Show success message
             showToast(`✅ Generated ${generatedQRs.length} QR codes!`);
         }
 
         // =============================================
-        // DOWNLOAD SINGLE QR CODE
+        // DOWNLOAD SINGLE QR CODE (DIRECT DOWNLOAD)
         // =============================================
         function downloadSingleQR(uniqueId) {
             const img = document.getElementById(`qr-${uniqueId}`);
             if (!img) return;
 
-            // Create download link
+            // Create direct download link
             const link = document.createElement('a');
             link.download = `${uniqueId}.png`;
             link.href = img.src;
-            link.target = '_blank';
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -184,7 +176,7 @@
         }
 
         // =============================================
-        // DOWNLOAD ALL QR CODES AS INDIVIDUAL FILES
+        // DOWNLOAD ALL QR CODES (DIRECT DOWNLOAD)
         // =============================================
         function downloadAllQRs() {
             if (generatedQRs.length === 0) {
@@ -192,136 +184,89 @@
                 return;
             }
 
-            // Download each QR code one by one with delay
-            let index = 0;
+            // Ask where to save
+            const confirmSave = confirm(`Download ${generatedQRs.length} QR codes to your PC?`);
+            if (!confirmSave) return;
 
-            function downloadNext() {
-                if (index >= generatedQRs.length) {
-                    showToast(`✅ Downloaded all ${generatedQRs.length} QR codes!`);
-                    return;
-                }
+            let downloaded = 0;
 
-                const qr = generatedQRs[index];
+            // Download each QR code
+            generatedQRs.forEach((qr, index) => {
+                // Create a temporary link for each QR
                 const link = document.createElement('a');
                 link.download = `${qr.id}.png`;
                 link.href = qr.url;
-                link.target = '_blank';
                 document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
+                
+                // Click with a small delay between downloads
+                setTimeout(() => {
+                    link.click();
+                    document.body.removeChild(link);
+                    downloaded++;
+                    
+                    if (downloaded === generatedQRs.length) {
+                        showToast(`✅ Downloaded all ${generatedQRs.length} QR codes to your PC!`);
+                    }
+                }, index * 300); // 300ms delay between each download
+            });
 
-                index++;
-                // Wait 500ms before next download
-                setTimeout(downloadNext, 500);
-            }
-
-            if (generatedQRs.length > 5) {
-                if (!confirm(`Download ${generatedQRs.length} QR codes? This will download multiple files.`)) {
-                    return;
-                }
-            }
-
-            downloadNext();
+            // Show progress
+            showToast(`⏳ Downloading ${generatedQRs.length} QR codes...`);
         }
 
         // =============================================
-        // DOWNLOAD QR SHEET (HTML for printing)
+        // DOWNLOAD AS ZIP (Using JSZip library)
         // =============================================
-        function downloadQRSheet() {
+        function downloadQRZip() {
             if (generatedQRs.length === 0) {
-                alert('No QR codes to export. Generate some first!');
+                alert('No QR codes to download. Generate some first!');
                 return;
             }
 
-            // Create a new window with all QR codes
-            const printWindow = window.open('', '_blank', 'width=800,height=600');
+            // Load JSZip library dynamically
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+            script.onload = function() {
+                const zip = new JSZip();
+                const imgFolder = zip.folder('QR_Codes');
 
-            let html = `
-                    <!DOCTYPE html>
-                    <html>
-                    <head>
-                        <title>QR Codes Sheet</title>
-                        <style>
-                            body {
-                                font-family: Arial, sans-serif;
-                                padding: 20px;
-                                background: white;
-                            }
-                            h1 {
-                                text-align: center;
-                                color: #333;
-                            }
-                            .grid {
-                                display: grid;
-                                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-                                gap: 20px;
-                                margin-top: 20px;
-                            }
-                            .item {
-                                text-align: center;
-                                border: 1px solid #ddd;
-                                padding: 15px;
-                                border-radius: 8px;
-                                page-break-inside: avoid;
-                            }
-                            .item img {
-                                max-width: 150px;
-                                height: auto;
-                            }
-                            .item strong {
-                                display: block;
-                                margin-top: 8px;
-                                color: #333;
-                            }
-                            .item small {
-                                color: #666;
-                            }
-                            @media print {
-                                body { padding: 10px; }
-                                .item { border: none; }
-                                .no-print { display: none; }
-                            }
-                        </style>
-                    </head>
-                    <body>
-                        <h1>📦 QR Codes - ${new Date().toLocaleDateString()}</h1>
-                        <button onclick="window.print()" class="no-print" style="padding:10px 20px; margin:10px auto; display:block; font-size:16px; cursor:pointer;">
-                            🖨️ Print This Sheet
-                        </button>
-                        <div class="grid">
-                `;
+                let loaded = 0;
 
-            generatedQRs.forEach(qr => {
-                html += `
-                        <div class="item">
-                            <img src="${qr.url}" alt="${qr.id}">
-                            <strong>${qr.id}</strong>
-                            <small>${qr.category}</small>
-                        </div>
-                    `;
-            });
-
-            html += `
-                        </div>
-                        <p style="text-align:center; color:#999; margin-top:30px;">
-                            Generated on ${new Date().toLocaleString()}
-                        </p>
-                    </body>
-                    </html>
-                `;
-
-            printWindow.document.write(html);
-            printWindow.document.close();
-
-            // Auto-print after load
-            printWindow.onload = function() {
-                // Don't auto-print, let user decide
-                showToast('📄 QR sheet opened! Click Print to save as PDF.');
+                generatedQRs.forEach((qr) => {
+                    // Fetch the image and add to zip
+                    fetch(qr.url)
+                        .then(response => response.blob())
+                        .then(blob => {
+                            imgFolder.file(`${qr.id}.png`, blob);
+                            loaded++;
+                            
+                            if (loaded === generatedQRs.length) {
+                                // Generate and download the zip
+                                zip.generateAsync({ type: 'blob' })
+                                    .then(content => {
+                                        const link = document.createElement('a');
+                                        link.download = `QR_Codes_${new Date().toISOString().split('T')[0]}.zip`;
+                                        link.href = URL.createObjectURL(content);
+                                        document.body.appendChild(link);
+                                        link.click();
+                                        document.body.removeChild(link);
+                                        showToast(`✅ Downloaded ZIP with ${generatedQRs.length} QR codes!`);
+                                    });
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error loading QR:', qr.id, error);
+                            loaded++;
+                        });
+                });
             };
+            document.head.appendChild(script);
+            
+            showToast(`⏳ Creating ZIP file...`);
         }
 
         // =============================================
-        // SAVE TO DATABASE (Fixed)
+        // SAVE TO DATABASE
         // =============================================
         async function saveToDatabase() {
             const items = window.generatedItems;
@@ -334,7 +279,6 @@
             const confirmSave = confirm(`Save ${items.length} items to the inventory database?`);
             if (!confirmSave) return;
 
-            // Disable the button to prevent double-click
             const btn = document.querySelector('.btn-success');
             if (btn) {
                 btn.disabled = true;
@@ -347,9 +291,7 @@
 
                 for (const item of items) {
                     try {
-                        // Check if item already exists
                         const existing = await getItemById(item.unique_id);
-
                         if (!existing) {
                             const result = await saveItem(item);
                             if (result && result.success === false) {
@@ -358,7 +300,6 @@
                                 saved++;
                             }
                         } else {
-                            // Item already exists - update it instead
                             await updateItem(item.unique_id, {
                                 category: item.category,
                                 status: 'unregistered'
@@ -373,23 +314,18 @@
 
                 let message = `✅ ${saved} items saved to inventory!`;
                 if (errors > 0) {
-                    message += `\n⚠️ ${errors} items had errors. Check the console for details.`;
+                    message += `\n⚠️ ${errors} items had errors.`;
                 }
-
                 alert(message);
-
-                // Update the heading to show success
-                document.querySelector('#qrOutput h3').textContent = '✅ QR Codes Generated!';
 
             } catch (error) {
                 console.error('Error saving to database:', error);
-                alert('❌ Error saving to database. Please check:\n\n1. Your Supabase connection\n2. That the "items" table exists\n3. Your anon key is correct\n\nError: ' + error.message);
+                alert('❌ Error saving to database. Please check your Supabase connection.');
             }
 
-            // Re-enable the button
             if (btn) {
                 btn.disabled = false;
-                btn.textContent = '💾 Save All to Inventory';
+                btn.textContent = '💾 Save to Database';
             }
         }
 
@@ -397,7 +333,6 @@
         // TOAST NOTIFICATION
         // =============================================
         function showToast(message) {
-            // Remove any existing toast
             const oldToast = document.querySelector('.toast-notification');
             if (oldToast) oldToast.remove();
 
