@@ -5,6 +5,85 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Generate QR Codes</title>
     <link rel="stylesheet" href="style.css" />
+    <style>
+        /* Additional styles for QR code control panel */
+        .control-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 16px;
+            background: white;
+        }
+        .form-group select:focus {
+            outline: none;
+            border-color: #4299e1;
+        }
+        .qr-grid {
+            display: grid;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .qr-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+        .qr-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+        .qr-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+        .qr-grid.cols-5 { grid-template-columns: repeat(5, 1fr); }
+        .qr-grid.cols-6 { grid-template-columns: repeat(6, 1fr); }
+        .qr-item {
+            text-align: center;
+            padding: 15px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: white;
+        }
+        .qr-item img {
+            max-width: 100%;
+            height: auto;
+        }
+        .btn-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 20px;
+            justify-content: center;
+        }
+        @media (max-width: 600px) {
+            .control-grid {
+                grid-template-columns: 1fr;
+            }
+            .qr-grid.cols-2,
+            .qr-grid.cols-3,
+            .qr-grid.cols-4,
+            .qr-grid.cols-5,
+            .qr-grid.cols-6 {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        @media print {
+            .control-grid, .btn-group, .no-print {
+                display: none !important;
+            }
+            .qr-grid.cols-2,
+            .qr-grid.cols-3,
+            .qr-grid.cols-4,
+            .qr-grid.cols-5,
+            .qr-grid.cols-6 {
+                grid-template-columns: repeat(4, 1fr) !important;
+            }
+            .qr-item {
+                border: none !important;
+                padding: 5px !important;
+            }
+            .qr-item img {
+                max-width: 80% !important;
+            }
+        }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -12,51 +91,84 @@
         <p class="subtitle">Create QR code stickers for your equipment</p>
 
         <form id="generateForm" class="generate-form">
-            <div class="form-group">
-                <label for="itemName">Item Name:</label>
-                <input type="text" id="itemName" placeholder="e.g., Laptop, Camera, Monitor" required />
-            </div>
+            <div class="control-grid">
+                <div class="form-group">
+                    <label for="itemName">Item Name:</label>
+                    <input type="text" id="itemName" placeholder="e.g., Laptop, Camera" required />
+                </div>
 
-            <div class="form-group">
-                <label for="quantity">Quantity:</label>
-                <input type="number" id="quantity" min="1" max="100" value="5" required />
-            </div>
+                <div class="form-group">
+                    <label for="quantity">Quantity:</label>
+                    <input type="number" id="quantity" min="1" max="100" value="5" required />
+                </div>
 
-            <div class="form-group">
-                <label for="category">Category (optional):</label>
-                <input type="text" id="category" placeholder="e.g., Electronics, Furniture" />
+                <div class="form-group">
+                    <label for="category">Category:</label>
+                    <input type="text" id="category" placeholder="e.g., Electronics" />
+                </div>
+
+                <div class="form-group">
+                    <label for="qrSize">QR Code Size:</label>
+                    <select id="qrSize">
+                        <option value="100">Small (100x100)</option>
+                        <option value="150">Medium-Small (150x150)</option>
+                        <option value="200" selected>Medium (200x200)</option>
+                        <option value="250">Medium-Large (250x250)</option>
+                        <option value="300">Large (300x300)</option>
+                        <option value="400">XL (400x400)</option>
+                        <option value="500">XXL (500x500)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="qrColor">QR Color:</label>
+                    <select id="qrColor">
+                        <option value="black">Black</option>
+                        <option value="darkblue">Dark Blue</option>
+                        <option value="darkgreen">Dark Green</option>
+                        <option value="darkred">Dark Red</option>
+                        <option value="purple">Purple</option>
+                        <option value="orange">Orange</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="cols">Columns per Row:</label>
+                    <select id="cols">
+                        <option value="2">2 columns</option>
+                        <option value="3" selected>3 columns</option>
+                        <option value="4">4 columns</option>
+                        <option value="5">5 columns</option>
+                        <option value="6">6 columns</option>
+                    </select>
+                </div>
             </div>
 
             <button type="submit" class="btn btn-primary btn-large">Generate QR Codes</button>
         </form>
 
-        <div id="qrOutput" style="display: none">
+        <div id="qrOutput" style="display: none;">
             <h3>Your QR Codes:</h3>
-            <div id="qrGrid" class="qr-grid"></div>
+            <div id="qrGrid" class="qr-grid cols-3"></div>
 
-            <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; justify-content: center;">
-                <button onclick="downloadAllQRs()" class="btn btn-primary">
-                    ⬇️ Download All QR Codes
-                </button>
-                <button onclick="window.print()" class="btn btn-secondary">
-                    🖨️ Print QR Codes
-                </button>
-                <button onclick="saveToDatabase()" class="btn btn-success" id="saveBtn">
-                    💾 Save All to Inventory
-                </button>
+            <div class="btn-group">
+                <button onclick="downloadAllQRs()" class="btn btn-primary">⬇️ Download All</button>
+                <button onclick="downloadQRZip()" class="btn btn-secondary">📦 Download ZIP</button>
+                <button onclick="window.print()" class="btn btn-outline">🖨️ Print</button>
+                <button onclick="saveToDatabase()" class="btn btn-success">💾 Save All to Inventory</button>
             </div>
-            <div id="saveStatus" style="margin-top: 10px; padding: 10px; border-radius: 8px; display: none;"></div>
+            <p style="margin-top: 10px; color: #718096; font-size: 14px; text-align: center;">
+                💡 Use the size selector above to control QR code dimensions
+            </p>
         </div>
 
-        <p style="margin-top: 20px">
+        <p style="margin-top: 20px;">
             <a href="index.html">← Back to Scanner</a> |
             <a href="dashboard.html">📊 Dashboard</a>
         </p>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="app.js"></script>
-
     <script>
         let generatedQRs = [];
         let generatedItems = [];
@@ -90,11 +202,17 @@
             generatedItems = [];
 
             const baseUrl = window.location.origin + window.location.pathname.replace('generate.html', 'index.html');
+            const size = document.getElementById('qrSize').value;
+            const color = document.getElementById('qrColor').value;
+            const cols = parseInt(document.getElementById('cols').value);
+
+            // Update grid columns
+            gridDiv.className = `qr-grid cols-${cols}`;
 
             for (let i = 1; i <= quantity; i++) {
                 const uniqueId = generateUniqueId(itemName, i);
                 const fullUrl = `${baseUrl}?id=${uniqueId}`;
-                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(fullUrl)}`;
+                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&color=${color}&data=${encodeURIComponent(fullUrl)}`;
 
                 const div = document.createElement('div');
                 div.className = 'qr-item';
@@ -105,7 +223,13 @@
                 `;
                 gridDiv.appendChild(div);
 
-                generatedQRs.push({ id: uniqueId, url: qrUrl, category: category });
+                generatedQRs.push({
+                    id: uniqueId,
+                    url: qrUrl,
+                    category: category,
+                    name: itemName,
+                    size: size
+                });
                 generatedItems.push({
                     unique_id: uniqueId,
                     category: category,
@@ -115,7 +239,7 @@
             }
 
             outputDiv.scrollIntoView({ behavior: 'smooth' });
-            showStatus('success', `✅ Generated ${generatedQRs.length} QR codes! Click "Save All to Inventory" to save.`);
+            showToast(`✅ Generated ${generatedQRs.length} QR codes!`);
         }
 
         function downloadAllQRs() {
@@ -136,61 +260,148 @@
             });
         }
 
-        // =============================================
-        // SAVE TO DATABASE - FIXED VERSION
-        // =============================================
+        function downloadQRZip() {
+            if (generatedQRs.length === 0) {
+                alert('No QR codes to download.');
+                return;
+            }
+
+            // Load JSZip library
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+            script.onload = function() {
+                const zip = new JSZip();
+                const imgFolder = zip.folder('QR_Codes');
+                let loaded = 0;
+
+                generatedQRs.forEach((qr) => {
+                    fetch(qr.url)
+                        .then(response => response.blob())
+                        .then(blob => {
+                            imgFolder.file(`${qr.id}.png`, blob);
+                            loaded++;
+                            if (loaded === generatedQRs.length) {
+                                zip.generateAsync({ type: 'blob' })
+                                    .then(content => {
+                                        const link = document.createElement('a');
+                                        link.download = `QR_Codes_${new Date().toISOString().split('T')[0]}.zip`;
+                                        link.href = URL.createObjectURL(content);
+                                        document.body.appendChild(link);
+                                        link.click();
+                                        document.body.removeChild(link);
+                                        showToast(`✅ Downloaded ZIP with ${generatedQRs.length} QR codes!`);
+                                    });
+                            }
+                        });
+                });
+            };
+            document.head.appendChild(script);
+            showToast(`⏳ Creating ZIP file...`);
+        }
+
         async function saveToDatabase() {
             const items = generatedItems;
-
             if (!items || items.length === 0) {
                 alert('No items to save. Generate QR codes first.');
                 return;
             }
 
-            const statusDiv = document.getElementById('saveStatus');
-            statusDiv.style.display = 'block';
-            statusDiv.style.background = '#f0f0f0';
-            statusDiv.style.color = '#333';
-            statusDiv.textContent = `⏳ Saving ${items.length} items...`;
+            const confirmSave = confirm(`Save ${items.length} items to the inventory database?`);
+            if (!confirmSave) return;
 
-            const btn = document.getElementById('saveBtn');
-            btn.disabled = true;
-            btn.textContent = '⏳ Saving...';
-
-            try {
-                // First test the connection
-                const connected = await testSupabaseConnection();
-                if (!connected) {
-                    throw new Error('Cannot connect to Supabase. Please check your internet connection.');
-                }
-
-                // Save all items at once
-                const result = await saveItemsToSupabase(items);
-                
-                statusDiv.style.background = '#c6f6d5';
-                statusDiv.style.color = '#22543d';
-                statusDiv.textContent = `✅ ${items.length} items saved successfully!`;
-                alert(`✅ ${items.length} items saved to the database!\n\nYou can now scan these QR codes.`);
-
-            } catch (error) {
-                console.error('Save error:', error);
-                statusDiv.style.background = '#fed7d7';
-                statusDiv.style.color = '#742a2a';
-                statusDiv.textContent = `❌ Error: ${error.message}`;
-                alert(`❌ Error saving to database:\n\n${error.message}\n\nPlease check:\n1. Your internet connection\n2. Supabase is running\n3. The "items" table exists\n4. Your API key is correct`);
+            const btn = document.querySelector('.btn-success');
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = '⏳ Saving...';
             }
 
-            btn.disabled = false;
-            btn.textContent = '💾 Save All to Inventory';
+            try {
+                let saved = 0;
+                let errors = 0;
+
+                for (const item of items) {
+                    try {
+                        const existing = await getItemById(item.unique_id);
+                        if (!existing) {
+                            const result = await saveItem(item);
+                            if (result && result.success === false) {
+                                errors++;
+                            } else {
+                                saved++;
+                            }
+                        } else {
+                            await updateItem(item.unique_id, {
+                                category: item.category,
+                                status: 'unregistered'
+                            });
+                            saved++;
+                        }
+                    } catch (itemError) {
+                        console.error('Error saving item:', item.unique_id, itemError);
+                        errors++;
+                    }
+                }
+
+                let message = `✅ ${saved} items saved to inventory!`;
+                if (errors > 0) {
+                    message += `\n⚠️ ${errors} items had errors.`;
+                }
+                alert(message);
+                document.querySelector('#qrOutput h3').textContent = '✅ QR Codes Generated and Saved!';
+
+            } catch (error) {
+                console.error('Error saving to database:', error);
+                alert('❌ Error saving to database. Please check your connection.');
+            }
+
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = '💾 Save All to Inventory';
+            }
         }
 
-        function showStatus(type, message) {
-            const statusDiv = document.getElementById('saveStatus');
-            statusDiv.style.display = 'block';
-            statusDiv.style.background = type === 'success' ? '#c6f6d5' : '#fed7d7';
-            statusDiv.style.color = type === 'success' ? '#22543d' : '#742a2a';
-            statusDiv.textContent = message;
+        function showToast(message) {
+            const oldToast = document.querySelector('.toast-notification');
+            if (oldToast) oldToast.remove();
+
+            const toast = document.createElement('div');
+            toast.className = 'toast-notification';
+            toast.style.cssText = `
+                position: fixed;
+                bottom: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: #48bb78;
+                color: white;
+                padding: 12px 24px;
+                border-radius: 8px;
+                font-weight: 600;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                z-index: 1000;
+                animation: slideUp 0.3s ease-out;
+                max-width: 90%;
+                text-align: center;
+            `;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.5s';
+                setTimeout(() => toast.remove(), 500);
+            }, 3000);
         }
+
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideUp {
+                from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+                to { opacity: 1; transform: translateX(-50%) translateY(0); }
+            }
+        `;
+        document.head.appendChild(style);
+
+        console.log('✅ QR Generator loaded!');
     </script>
 </body>
 </html>
