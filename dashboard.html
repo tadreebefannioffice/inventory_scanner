@@ -1,15 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Inventory Dashboard</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css" />
 </head>
 <body>
     <div class="container">
         <h1>📊 Inventory Dashboard</h1>
-        
+
         <div class="stats">
             <div class="stat-card">
                 <h3>Total Items</h3>
@@ -24,18 +24,338 @@
                 <p id="unregisteredItems">0</p>
             </div>
         </div>
-        
+
         <div id="itemList">
             <h3>All Items</h3>
-            <input type="text" id="searchBar" placeholder="Search items..." onkeyup="searchItems()" class="search-bar">
+
+            <!-- ========================================== -->
+            <!-- SEARCH BAR AND EXPORT BUTTONS              -->
+            <!-- ========================================== -->
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; margin: 15px 0;">
+                <input
+                    type="text"
+                    id="searchBar"
+                    placeholder="Search items..."
+                    onkeyup="searchItems()"
+                    class="search-bar"
+                    style="flex: 1; min-width: 200px;"
+                />
+                <button onclick="exportToExcel()" class="btn btn-success" style="white-space: nowrap;">
+                    📊 Export to Excel
+                </button>
+                <button onclick="exportToCSV()" class="btn btn-secondary" style="white-space: nowrap;">
+                    📥 Export CSV
+                </button>
+                <button onclick="window.print()" class="btn btn-outline" style="white-space: nowrap;">
+                    🖨️ Print
+                </button>
+            </div>
+
             <div id="itemsTable"></div>
         </div>
-        
-        <p><a href="index.html">← Back to Scanner</a></p>
+
+        <p style="margin-top: 20px">
+            <a href="index.html">← Back to Scanner</a> |
+            <a href="generate.html">🏷️ Generate QR Codes</a>
+        </p>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js"></script>
-    <script src="dashboard.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
+    </script>
+    <script src="app.js">
+    </script>
+
+    <script>
+        // =============================================
+        // LOAD DASHBOARD
+        // =============================================
+        document.addEventListener('DOMContentLoaded', function() {
+            loadDashboard();
+        });
+
+        async function loadDashboard() {
+            try {
+                const items = await getAllItems();
+
+                // Store items globally for export
+                window.inventoryItems = items;
+
+                // Update stats
+                const total = items.length;
+                const registered = items.filter(item => item.status === 'registered' || item.status === 'active')
+                    .length;
+                const unregistered = items.filter(item => item.status === 'unregistered').length;
+
+                document.getElementById('totalItems').textContent = total;
+                document.getElementById('registeredItems').textContent = registered;
+                document.getElementById('unregisteredItems').textContent = unregistered;
+
+                // Display items table
+                displayItems(items);
+
+            } catch (error) {
+                console.error('Error loading dashboard:', error);
+                document.getElementById('itemsTable').innerHTML = `
+                        <p style="color: red;">Error loading inventory. Please check your database connection.</p>
+                    `;
+            }
+        }
+
+        // =============================================
+        // DISPLAY ITEMS IN TABLE
+        // =============================================
+        function displayItems(items) {
+            const tableDiv = document.getElementById('itemsTable');
+
+            if (!items || items.length === 0) {
+                tableDiv.innerHTML = `
+                        <p style="color: #718096; text-align: center; padding: 30px;">
+                            No items in inventory yet. Generate QR codes to get started!
+                        </p>
+                    `;
+                return;
+            }
+
+            let html = `
+                    <div style="overflow-x: auto;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Category</th>
+                                    <th>Serial</th>
+                                    <th>Assigned To</th>
+                                    <th>Location</th>
+                                    <th>Status</th>
+                                    <th>Qty</th>
+                                    <th>Registered</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                        `;
+
+            items.forEach(item => {
+                const statusClass = item.status === 'registered' || item.status === 'active' ?
+                    'status-registered' :
+                    'status-unregistered';
+
+                const registeredDate = item.registered_at ?
+                    new Date(item.registered_at).toLocaleDateString() :
+                    'N/A';
+
+                html += `
+                            <tr>
+                                <td><strong>${item.unique_id || 'N/A'}</strong></td>
+                                <td>${item.category || 'N/A'}</td>
+                                <td>${item.serial_number || 'N/A'}</td>
+                                <td>${item.assigned_to || 'Unassigned'}</td>
+                                <td>${item.location || 'Unknown'}</td>
+                                <td><span class="status-badge ${statusClass}">${item.status || 'unknown'}</span></td>
+                                <td>${item.quantity || 1}</td>
+                                <td>${registeredDate}</td>
+                                <td>
+                                    <a href="index.html?id=${item.unique_id}" class="btn btn-outline" style="padding: 4px 12px; font-size: 12px; text-decoration: none;">
+                                        🔍 Scan
+                                    </a>
+                                </td>
+                            </tr>
+                        `;
+            });
+
+            html += `
+                            </tbody>
+                        </table>
+                    </div>
+                    <p style="margin-top: 10px; color: #718096; font-size: 14px;">
+                        Showing ${items.length} item${items.length > 1 ? 's' : ''}
+                    </p>
+                    `;
+
+            tableDiv.innerHTML = html;
+        }
+
+        // =============================================
+        // SEARCH ITEMS
+        // =============================================
+        function searchItems() {
+            const searchTerm = document.getElementById('searchBar').value.toLowerCase();
+            const rows = document.querySelectorAll('#itemsTable tbody tr');
+
+            let visibleCount = 0;
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                const isVisible = text.includes(searchTerm);
+                row.style.display = isVisible ? '' : 'none';
+                if (isVisible) visibleCount++;
+            });
+
+            // Update count
+            const countDisplay = document.querySelector('#itemsTable p');
+            if (countDisplay && searchTerm) {
+                countDisplay.textContent = `Showing ${visibleCount} item${visibleCount > 1 ? 's' : ''}`;
+            }
+        }
+
+        // =============================================
+        // METHOD 2: EXPORT TO EXCEL (Full Code)
+        // =============================================
+        function exportToExcel() {
+            const items = window.inventoryItems || [];
+
+            if (items.length === 0) {
+                alert('No data to export. Please add some items first.');
+                return;
+            }
+
+            // Create CSV content with BOM for Excel support
+            let csv = '\uFEFF'; // UTF-8 BOM for Excel
+            csv += 'ID,Category,Serial Number,Assigned To,Location,Status,Quantity,Registered Date\n';
+
+            items.forEach(item => {
+                const row = [
+                    item.unique_id || '',
+                    item.category || '',
+                    item.serial_number || '',
+                    item.assigned_to || 'Unassigned',
+                    item.location || 'Unknown',
+                    item.status || 'unregistered',
+                    item.quantity || 1,
+                    item.registered_at ? new Date(item.registered_at).toLocaleDateString() : ''
+                ];
+
+                // Escape commas and quotes in fields
+                const escapedRow = row.map(field => {
+                    if (typeof field === 'string' && (field.includes(',') || field.includes('"') || field.includes('\n'))) {
+                        return `"${field.replace(/"/g, '""')}"`;
+                    }
+                    return field;
+                });
+
+                csv += escapedRow.join(',') + '\n';
+            });
+
+            // Create and download the file
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `inventory_export_${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+
+            // Show success message
+            showToast(`✅ Downloaded ${items.length} items to Excel!`);
+        }
+
+        // =============================================
+        // EXPORT TO CSV (Alternative)
+        // =============================================
+        function exportToCSV() {
+            const items = window.inventoryItems || [];
+
+            if (items.length === 0) {
+                alert('No data to export.');
+                return;
+            }
+
+            // Simple CSV without BOM (for non-Excel users)
+            let csv = 'ID,Category,Serial Number,Assigned To,Location,Status,Quantity,Registered Date\n';
+
+            items.forEach(item => {
+                csv +=
+                    `${item.unique_id || ''},${item.category || ''},${item.serial_number || ''},${item.assigned_to || 'Unassigned'},${item.location || 'Unknown'},${item.status || 'unregistered'},${item.quantity || 1},${item.registered_at ? new Date(item.registered_at).toLocaleDateString() : ''}\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `inventory_${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+
+            showToast(`✅ Downloaded ${items.length} items to CSV!`);
+        }
+
+        // =============================================
+        // TOAST NOTIFICATION
+        // =============================================
+        function showToast(message) {
+            // Remove any existing toast
+            const oldToast = document.querySelector('.toast-notification');
+            if (oldToast) oldToast.remove();
+
+            const toast = document.createElement('div');
+            toast.className = 'toast-notification';
+            toast.style.cssText = `
+                    position: fixed;
+                    bottom: 20px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    background: #48bb78;
+                    color: white;
+                    padding: 12px 24px;
+                    border-radius: 8px;
+                    font-weight: 600;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                    z-index: 1000;
+                    animation: slideUp 0.3s ease-out;
+                    max-width: 90%;
+                    text-align: center;
+                `;
+            toast.textContent = message;
+
+            document.body.appendChild(toast);
+
+            // Auto-remove after 3 seconds
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.5s';
+                setTimeout(() => toast.remove(), 500);
+            }, 3000);
+        }
+
+        // =============================================
+        // ADD ANIMATION STYLES (if not already in style.css)
+        // =============================================
+        const style = document.createElement('style');
+        style.textContent = `
+                @keyframes slideUp {
+                    from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+                    to { opacity: 1; transform: translateX(-50%) translateY(0); }
+                }
+                .btn-success {
+                    background: #48bb78;
+                    color: white;
+                }
+                .btn-success:hover {
+                    background: #38a169;
+                }
+                @media print {
+                    .btn, .search-bar, .no-print {
+                        display: none !important;
+                    }
+                }
+            `;
+        document.head.appendChild(style);
+
+        // =============================================
+        // KEYBOARD SHORTCUT: Ctrl+E for Export
+        // =============================================
+        document.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
+                e.preventDefault();
+                exportToExcel();
+            }
+        });
+
+        console.log('✅ Dashboard loaded! Press Ctrl+E to export to Excel.');
+        console.log(`📊 ${window.inventoryItems ? window.inventoryItems.length : 0} items loaded.`);
+    </script>
 </body>
 </html>
