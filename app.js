@@ -4,6 +4,7 @@
 
 const SUPABASE_URL = 'https://erjyhqelweywgrghfbba.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_KmvSd5y3hYOcXVEUdzhP8w_B9-P4MTc';
+const TABLE_NAME = 'items';
 
 // =============================================
 // Test the connection first
