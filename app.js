@@ -3,7 +3,7 @@
 // =============================================
 
 const SUPABASE_URL = 'https://tadreebefanniofficesproject.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVyanlocWVsd2V5d3JncmhmYmJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ1NTY0MjksImV4cCI6MjEwMDEzMjQyOX0.cfkAsjYlVRxwEKgE83KLEHhm71_U3T6jqtRGsipqalw';
+const SUPABASE_ANON_KEY = 'sb_publishable_KmvSd5y3hYOcXVEUdzhP8w_B9-P4MTc';
 
 // =============================================
 // Test the connection first
