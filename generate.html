@@ -11,9 +11,6 @@
         <h1>🏷️ Generate QR Codes</h1>
         <p class="subtitle">Create QR code stickers for your equipment</p>
 
-        <!-- ========================================== -->
-        <!-- GENERATION FORM                            -->
-        <!-- ========================================== -->
         <form id="generateForm" class="generate-form">
             <div class="form-group">
                 <label for="itemName">Item Name:</label>
@@ -33,16 +30,10 @@
             <button type="submit" class="btn btn-primary btn-large">Generate QR Codes</button>
         </form>
 
-        <!-- ========================================== -->
-        <!-- QR CODE OUTPUT                             -->
-        <!-- ========================================== -->
         <div id="qrOutput" style="display: none">
             <h3>Your QR Codes:</h3>
             <div id="qrGrid" class="qr-grid"></div>
 
-            <!-- ========================================== -->
-            <!-- ACTION BUTTONS                             -->
-            <!-- ========================================== -->
             <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; justify-content: center;">
                 <button onclick="downloadAllQRs()" class="btn btn-primary">
                     ⬇️ Download All QR Codes
@@ -54,9 +45,6 @@
                     💾 Save All to Inventory
                 </button>
             </div>
-            <p style="margin-top: 10px; color: #718096; font-size: 14px; text-align: center;">
-                💡 Click "Save All to Inventory" to store these items in your database
-            </p>
             <div id="saveStatus" style="margin-top: 10px; padding: 10px; border-radius: 8px; display: none;"></div>
         </div>
 
@@ -66,23 +54,13 @@
         </p>
     </div>
 
-    <!-- ========================================== -->
-    <!-- SCRIPTS                                    -->
-    <!-- ========================================== -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
-    </script>
-    <script src="app.js">
-    </script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app.js"></script>
 
     <script>
-        // =============================================
-        // STORE GENERATED QR CODES
-        // =============================================
         let generatedQRs = [];
+        let generatedItems = [];
 
-        // =============================================
-        // FORM SUBMIT - GENERATE QR CODES
-        // =============================================
         document.addEventListener('DOMContentLoaded', function() {
             const form = document.getElementById('generateForm');
 
@@ -102,9 +80,6 @@
             });
         });
 
-        // =============================================
-        // GENERATE QR CODES
-        // =============================================
         async function generateQRCodes(itemName, quantity, category) {
             const outputDiv = document.getElementById('qrOutput');
             const gridDiv = document.getElementById('qrGrid');
@@ -112,55 +87,43 @@
             gridDiv.innerHTML = '';
             outputDiv.style.display = 'block';
             generatedQRs = [];
+            generatedItems = [];
 
             const baseUrl = window.location.origin + window.location.pathname.replace('generate.html', 'index.html');
 
             for (let i = 1; i <= quantity; i++) {
                 const uniqueId = generateUniqueId(itemName, i);
                 const fullUrl = `${baseUrl}?id=${uniqueId}`;
-
                 const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(fullUrl)}`;
 
                 const div = document.createElement('div');
                 div.className = 'qr-item';
-                div.setAttribute('data-id', uniqueId);
                 div.innerHTML = `
-                        <img src="${qrUrl}" alt="QR Code for ${uniqueId}" loading="lazy" id="qr-${uniqueId}">
-                        <strong>${uniqueId}</strong>
-                        <br><small style="color:#718096;">${category}</small>
-                    `;
+                    <img src="${qrUrl}" alt="QR Code for ${uniqueId}" loading="lazy">
+                    <strong>${uniqueId}</strong>
+                    <br><small style="color:#718096;">${category}</small>
+                `;
                 gridDiv.appendChild(div);
 
-                generatedQRs.push({
-                    id: uniqueId,
-                    url: qrUrl,
+                generatedQRs.push({ id: uniqueId, url: qrUrl, category: category });
+                generatedItems.push({
+                    unique_id: uniqueId,
                     category: category,
-                    name: itemName
+                    status: 'unregistered',
+                    quantity: 1
                 });
             }
 
-            // Store items for database save
-            window.generatedItems = generatedQRs.map(qr => ({
-                unique_id: qr.id,
-                category: qr.category,
-                status: 'unregistered',
-                quantity: 1
-            }));
-
             outputDiv.scrollIntoView({ behavior: 'smooth' });
-            showStatus('success', `✅ Generated ${generatedQRs.length} QR codes! Now click "Save All to Inventory" to store them.`);
+            showStatus('success', `✅ Generated ${generatedQRs.length} QR codes! Click "Save All to Inventory" to save.`);
         }
 
-        // =============================================
-        // DOWNLOAD ALL QR CODES
-        // =============================================
         function downloadAllQRs() {
             if (generatedQRs.length === 0) {
-                alert('No QR codes to download. Generate some first!');
+                alert('No QR codes to download.');
                 return;
             }
 
-            let downloaded = 0;
             generatedQRs.forEach((qr, index) => {
                 const link = document.createElement('a');
                 link.download = `${qr.id}.png`;
@@ -169,117 +132,63 @@
                 setTimeout(() => {
                     link.click();
                     document.body.removeChild(link);
-                    downloaded++;
-                    if (downloaded === generatedQRs.length) {
-                        showStatus('success', `✅ Downloaded all ${generatedQRs.length} QR codes!`);
-                    }
                 }, index * 300);
             });
         }
 
         // =============================================
-        // =============================================
         // SAVE TO DATABASE - FIXED VERSION
         // =============================================
-        // =============================================
         async function saveToDatabase() {
-            const items = window.generatedItems;
+            const items = generatedItems;
 
             if (!items || items.length === 0) {
                 alert('No items to save. Generate QR codes first.');
                 return;
             }
 
-            // Show saving status
             const statusDiv = document.getElementById('saveStatus');
             statusDiv.style.display = 'block';
             statusDiv.style.background = '#f0f0f0';
             statusDiv.style.color = '#333';
-            statusDiv.textContent = `⏳ Saving ${items.length} items to database...`;
+            statusDiv.textContent = `⏳ Saving ${items.length} items...`;
 
-            // Disable the button
             const btn = document.getElementById('saveBtn');
             btn.disabled = true;
             btn.textContent = '⏳ Saving...';
 
             try {
-                let saved = 0;
-                let errors = 0;
-                let errorMessages = [];
-
-                for (const item of items) {
-                    try {
-                        // Check if item already exists
-                        const existing = await getItemById(item.unique_id);
-
-                        if (!existing) {
-                            // Save new item
-                            const result = await saveItem(item);
-                            if (result && result.success === false) {
-                                errors++;
-                                errorMessages.push(`${item.unique_id}: Already exists`);
-                            } else {
-                                saved++;
-                            }
-                        } else {
-                            // Item already exists - update it
-                            await updateItem(item.unique_id, {
-                                category: item.category,
-                                status: 'unregistered'
-                            });
-                            saved++;
-                        }
-                    } catch (itemError) {
-                        console.error('Error saving item:', item.unique_id, itemError);
-                        errors++;
-                        errorMessages.push(`${item.unique_id}: ${itemError.message}`);
-                    }
+                // First test the connection
+                const connected = await testSupabaseConnection();
+                if (!connected) {
+                    throw new Error('Cannot connect to Supabase. Please check your internet connection.');
                 }
 
-                // Show final status
-                let message = `✅ ${saved} items saved successfully!`;
-                if (errors > 0) {
-                    message += `\n⚠️ ${errors} items had errors: ${errorMessages.join(', ')}`;
-                    statusDiv.style.background = '#fed7d7';
-                    statusDiv.style.color = '#742a2a';
-                } else {
-                    statusDiv.style.background = '#c6f6d5';
-                    statusDiv.style.color = '#22543d';
-                }
-                statusDiv.textContent = message;
-                alert(message);
+                // Save all items at once
+                const result = await saveItemsToSupabase(items);
+                
+                statusDiv.style.background = '#c6f6d5';
+                statusDiv.style.color = '#22543d';
+                statusDiv.textContent = `✅ ${items.length} items saved successfully!`;
+                alert(`✅ ${items.length} items saved to the database!\n\nYou can now scan these QR codes.`);
 
             } catch (error) {
-                console.error('Error saving to database:', error);
+                console.error('Save error:', error);
                 statusDiv.style.background = '#fed7d7';
                 statusDiv.style.color = '#742a2a';
                 statusDiv.textContent = `❌ Error: ${error.message}`;
-                alert(`❌ Error saving to database:\n\n${error.message}\n\nPlease check:\n1. Your Supabase connection\n2. That the "items" table exists\n3. Your anon key is correct`);
+                alert(`❌ Error saving to database:\n\n${error.message}\n\nPlease check:\n1. Your internet connection\n2. Supabase is running\n3. The "items" table exists\n4. Your API key is correct`);
             }
 
-            // Re-enable the button
             btn.disabled = false;
             btn.textContent = '💾 Save All to Inventory';
         }
 
-        // =============================================
-        // SHOW STATUS MESSAGE
-        // =============================================
         function showStatus(type, message) {
             const statusDiv = document.getElementById('saveStatus');
             statusDiv.style.display = 'block';
-            
-            if (type === 'success') {
-                statusDiv.style.background = '#c6f6d5';
-                statusDiv.style.color = '#22543d';
-            } else if (type === 'error') {
-                statusDiv.style.background = '#fed7d7';
-                statusDiv.style.color = '#742a2a';
-            } else {
-                statusDiv.style.background = '#f0f0f0';
-                statusDiv.style.color = '#333';
-            }
-            
+            statusDiv.style.background = type === 'success' ? '#c6f6d5' : '#fed7d7';
+            statusDiv.style.color = type === 'success' ? '#22543d' : '#742a2a';
             statusDiv.textContent = message;
         }
     </script>
