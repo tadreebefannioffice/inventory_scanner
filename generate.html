@@ -41,9 +41,11 @@
         .qr-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
         .qr-grid.cols-5 { grid-template-columns: repeat(5, 1fr); }
         .qr-grid.cols-6 { grid-template-columns: repeat(6, 1fr); }
+        .qr-grid.cols-8 { grid-template-columns: repeat(8, 1fr); }
+        .qr-grid.cols-10 { grid-template-columns: repeat(10, 1fr); }
         .qr-item {
             text-align: center;
-            padding: 15px;
+            padding: 10px;
             border: 1px solid #e2e8f0;
             border-radius: 8px;
             background: white;
@@ -52,6 +54,12 @@
             max-width: 100%;
             height: auto;
         }
+        .qr-item .qr-size-label {
+            font-size: 10px;
+            color: #718096;
+            display: block;
+            margin-top: 4px;
+        }
         .btn-group {
             display: flex;
             flex-wrap: wrap;
@@ -59,11 +67,17 @@
             margin-top: 20px;
             justify-content: center;
         }
-        .size-hint {
-            font-size: 11px;
-            color: #718096;
-            display: block;
-            margin-top: 4px;
+        .print-size-hint {
+            background: #f7fafc;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 15px;
+            text-align: center;
+            font-size: 14px;
+            color: #4a5568;
+        }
+        .print-size-hint strong {
+            color: #2d3748;
         }
         @media (max-width: 600px) {
             .control-grid {
@@ -73,27 +87,39 @@
             .qr-grid.cols-3,
             .qr-grid.cols-4,
             .qr-grid.cols-5,
-            .qr-grid.cols-6 {
+            .qr-grid.cols-6,
+            .qr-grid.cols-8,
+            .qr-grid.cols-10 {
                 grid-template-columns: repeat(2, 1fr);
             }
         }
         @media print {
-            .control-grid, .btn-group, .no-print {
+            .control-grid,
+            .btn-group,
+            .no-print {
                 display: none !important;
             }
-            .qr-grid.cols-2,
-            .qr-grid.cols-3,
-            .qr-grid.cols-4,
-            .qr-grid.cols-5,
-            .qr-grid.cols-6 {
-                grid-template-columns: repeat(4, 1fr) !important;
+            .qr-grid {
+                display: grid !important;
+                gap: 5mm !important;
             }
+            .qr-grid.cols-2 { grid-template-columns: repeat(2, 1fr) !important; }
+            .qr-grid.cols-3 { grid-template-columns: repeat(3, 1fr) !important; }
+            .qr-grid.cols-4 { grid-template-columns: repeat(4, 1fr) !important; }
+            .qr-grid.cols-5 { grid-template-columns: repeat(5, 1fr) !important; }
+            .qr-grid.cols-6 { grid-template-columns: repeat(6, 1fr) !important; }
+            .qr-grid.cols-8 { grid-template-columns: repeat(4, 1fr) !important; }
+            .qr-grid.cols-10 { grid-template-columns: repeat(5, 1fr) !important; }
             .qr-item {
                 border: none !important;
-                padding: 5px !important;
+                padding: 2mm !important;
             }
             .qr-item img {
-                max-width: 80% !important;
+                max-width: 100% !important;
+                height: auto !important;
+            }
+            .qr-item .qr-size-label {
+                font-size: 6pt !important;
             }
         }
     </style>
@@ -121,30 +147,28 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="qrSize">QR Code Module Size (pixels per square):</label>
-                    <select id="qrSize">
+                    <label for="qrPrintSize">Print Size (mm):</label>
+                    <select id="qrPrintSize">
                         <optgroup label="⭐ Tiny (for small items)">
-                            <option value="4">4px - Ultra Micro</option>
-                            <option value="6">6px - Extra Mini</option>
-                            <option value="8">8px - Mini</option>
-                            <option value="10" selected>10px - Tiny</option>
-                            <option value="12">12px - Very Small</option>
-                            <option value="16">16px - Extra Small</option>
+                            <option value="5">5mm - Ultra Tiny</option>
+                            <option value="8">8mm - Very Tiny</option>
+                            <option value="10" selected>10mm - Tiny</option>
+                            <option value="12">12mm - Small</option>
+                            <option value="15">15mm - Small Plus</option>
                         </optgroup>
                         <optgroup label="📏 Standard">
-                            <option value="20">20px - Small</option>
-                            <option value="30">30px - Medium Small</option>
-                            <option value="40">40px - Medium</option>
-                            <option value="50">50px - Medium Large</option>
-                            <option value="60">60px - Large</option>
+                            <option value="20">20mm - Medium Small</option>
+                            <option value="25">25mm - Medium</option>
+                            <option value="30">30mm - Medium Large</option>
+                            <option value="40">40mm - Large</option>
                         </optgroup>
                         <optgroup label="🖼️ Extra Large">
-                            <option value="80">80px - XL</option>
-                            <option value="100">100px - XXL</option>
-                            <option value="120">120px - XXXL</option>
+                            <option value="50">50mm - XL</option>
+                            <option value="70">70mm - XXL</option>
+                            <option value="100">100mm - XXXL</option>
                         </optgroup>
                     </select>
-                    <small>💡 Module size = how big each black/white square is. Lower = smaller QR code.</small>
+                    <small>💡 This controls the physical size when printed. 10mm = 1cm.</small>
                 </div>
 
                 <div class="form-group">
@@ -180,6 +204,13 @@
             <h3>Your QR Codes:</h3>
             <div id="qrGrid" class="qr-grid cols-3"></div>
 
+            <div class="print-size-hint no-print">
+                🖨️ <strong>Print size:</strong> Each QR code will print at
+                <span id="printSizeDisplay">10</span>mm
+                &nbsp;|&nbsp; 📐 <strong>Total width:</strong>
+                <span id="totalWidthDisplay">30</span>mm per row
+            </div>
+
             <div class="btn-group">
                 <button onclick="downloadAllQRs()" class="btn btn-primary">⬇️ Download All</button>
                 <button onclick="downloadQRZip()" class="btn btn-secondary">📦 Download ZIP</button>
@@ -187,7 +218,7 @@
                 <button onclick="saveToDatabase()" class="btn btn-success">💾 Save All to Inventory</button>
             </div>
             <p style="margin-top: 10px; color: #718096; font-size: 14px; text-align: center;">
-                💡 Module size = size of each square. Lower values = smaller QR codes.
+                💡 QR codes will print at the selected size. Use 10-15mm for tiny equipment.
             </p>
         </div>
 
@@ -199,7 +230,8 @@
 
     <script src="app.js"></script>
     <!-- QRCode.js library for generating QR codes directly -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js">
+    </script>
 
     <script>
         let generatedQRs = [];
@@ -207,6 +239,20 @@
 
         document.addEventListener('DOMContentLoaded', function() {
             const form = document.getElementById('generateForm');
+
+            // Update the print size display when the dropdown changes
+            document.getElementById('qrPrintSize').addEventListener('change', function() {
+                const size = this.value;
+                document.getElementById('printSizeDisplay').textContent = size;
+                const cols = parseInt(document.getElementById('cols').value);
+                document.getElementById('totalWidthDisplay').textContent = size * cols;
+            });
+
+            document.getElementById('cols').addEventListener('change', function() {
+                const cols = parseInt(this.value);
+                const size = parseInt(document.getElementById('qrPrintSize').value);
+                document.getElementById('totalWidthDisplay').textContent = size * cols;
+            });
 
             form.addEventListener('submit', async function(e) {
                 e.preventDefault();
@@ -225,7 +271,7 @@
         });
 
         // =============================================
-        // GENERATE QR CODES USING QRCode.js Library
+        // GENERATE QR CODES WITH PRINT SIZE CONTROL
         // =============================================
         async function generateQRCodes(itemName, quantity, category) {
             const outputDiv = document.getElementById('qrOutput');
@@ -236,12 +282,21 @@
             generatedQRs = [];
             generatedItems = [];
 
-            const moduleSize = parseInt(document.getElementById('qrSize').value);
+            // Get print size in mm
+            const printSizeMM = parseInt(document.getElementById('qrPrintSize').value);
             const color = document.getElementById('qrColor').value;
             const cols = parseInt(document.getElementById('cols').value);
 
+            // Calculate pixel size for screen display (print size * 3.78 for 96 DPI)
+            // But we want to show it at a reasonable size while printing at correct size
+            const displaySize = Math.max(printSizeMM * 3, 100);
+
             // Update grid columns
             gridDiv.className = `qr-grid cols-${cols}`;
+
+            // Update print size display
+            document.getElementById('printSizeDisplay').textContent = printSizeMM;
+            document.getElementById('totalWidthDisplay').textContent = printSizeMM * cols;
 
             const baseUrl = window.location.origin + window.location.pathname.replace('generate.html', 'index.html');
 
@@ -257,19 +312,20 @@
                     <div id="${containerId}"></div>
                     <strong>${uniqueId}</strong>
                     <br><small style="color:#718096;">${category}</small>
-                    <span class="size-hint">Module: ${moduleSize}px</span>
+                    <span class="qr-size-label">${printSizeMM}mm</span>
                 `;
                 gridDiv.appendChild(div);
 
-                // Generate QR code using QRCode.js
+                // Generate QR code using QRCode.js with high resolution for printing
+                // We use a larger pixel size for screen display, but the print CSS handles the physical size
                 const qrContainer = document.getElementById(containerId);
                 const qr = new QRCode(qrContainer, {
                     text: fullUrl,
-                    width: moduleSize * 25, // 25 modules for QR code
-                    height: moduleSize * 25,
+                    width: displaySize,
+                    height: displaySize,
                     colorDark: color === 'black' ? '#000000' : color,
                     colorLight: '#ffffff',
-                    correctLevel: QRCode.CorrectLevel.H // High error correction
+                    correctLevel: QRCode.CorrectLevel.H // High error correction for tiny prints
                 });
 
                 // Get the generated image data URL
@@ -281,7 +337,8 @@
                     url: dataUrl,
                     category: category,
                     name: itemName,
-                    size: moduleSize
+                    printSize: printSizeMM,
+                    displaySize: displaySize
                 });
                 generatedItems.push({
                     unique_id: uniqueId,
@@ -292,7 +349,7 @@
             }
 
             outputDiv.scrollIntoView({ behavior: 'smooth' });
-            showToast(`✅ Generated ${generatedQRs.length} QR codes with ${moduleSize}px modules!`);
+            showToast(`✅ Generated ${generatedQRs.length} QR codes at ${printSizeMM}mm each!`);
         }
 
         // =============================================
@@ -340,7 +397,8 @@
                                 zip.generateAsync({ type: 'blob' })
                                     .then(content => {
                                         const link = document.createElement('a');
-                                        link.download = `QR_Codes_${new Date().toISOString().split('T')[0]}.zip`;
+                                        link.download =
+                                            `QR_Codes_${new Date().toISOString().split('T')[0]}.zip`;
                                         link.href = URL.createObjectURL(content);
                                         document.body.appendChild(link);
                                         link.click();
@@ -463,7 +521,7 @@
         `;
         document.head.appendChild(style);
 
-        console.log('✅ QR Generator loaded with tiny module sizes!');
+        console.log('✅ QR Generator loaded with print size control!');
     </script>
 </body>
 </html>
