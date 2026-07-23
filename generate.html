@@ -67,6 +67,13 @@
             margin-top: 20px;
             justify-content: center;
         }
+        .btn-doc {
+            background: #2b6cb0;
+            color: white;
+        }
+        .btn-doc:hover {
+            background: #1a4f8b;
+        }
         .print-size-hint {
             background: #f7fafc;
             padding: 12px;
@@ -75,9 +82,6 @@
             text-align: center;
             font-size: 14px;
             color: #4a5568;
-        }
-        .print-size-hint strong {
-            color: #2d3748;
         }
         @media (max-width: 600px) {
             .control-grid {
@@ -118,9 +122,6 @@
                 max-width: 100% !important;
                 height: auto !important;
             }
-            .qr-item .qr-size-label {
-                font-size: 6pt !important;
-            }
         }
     </style>
 </head>
@@ -149,7 +150,7 @@
                 <div class="form-group">
                     <label for="qrPrintSize">Print Size (mm):</label>
                     <select id="qrPrintSize">
-                        <optgroup label="⭐ Tiny (for small items)">
+                        <optgroup label="⭐ Tiny">
                             <option value="5">5mm - Ultra Tiny</option>
                             <option value="8">8mm - Very Tiny</option>
                             <option value="10" selected>10mm - Tiny</option>
@@ -168,7 +169,7 @@
                             <option value="100">100mm - XXXL</option>
                         </optgroup>
                     </select>
-                    <small>💡 This controls the physical size when printed. 10mm = 1cm.</small>
+                    <small>💡 Controls physical size when printed.</small>
                 </div>
 
                 <div class="form-group">
@@ -205,20 +206,23 @@
             <div id="qrGrid" class="qr-grid cols-3"></div>
 
             <div class="print-size-hint no-print">
-                🖨️ <strong>Print size:</strong> Each QR code will print at
-                <span id="printSizeDisplay">10</span>mm
-                &nbsp;|&nbsp; 📐 <strong>Total width:</strong>
-                <span id="totalWidthDisplay">30</span>mm per row
+                🖨️ <strong>Print size:</strong> <span id="printSizeDisplay">10</span>mm per QR code
+                &nbsp;|&nbsp; 📐 <strong>Total width:</strong> <span id="totalWidthDisplay">30</span>mm per row
             </div>
 
+            <!-- ========================================== -->
+            <!-- EXPANDED BUTTON GROUP WITH WORD DOC        -->
+            <!-- ========================================== -->
             <div class="btn-group">
-                <button onclick="downloadAllQRs()" class="btn btn-primary">⬇️ Download All</button>
+                <button onclick="downloadAllQRs()" class="btn btn-primary">⬇️ Download PNGs</button>
                 <button onclick="downloadQRZip()" class="btn btn-secondary">📦 Download ZIP</button>
+                <button onclick="downloadWordDoc()" class="btn btn-doc">📄 Download Word Doc</button>
                 <button onclick="window.print()" class="btn btn-outline">🖨️ Print</button>
-                <button onclick="saveToDatabase()" class="btn btn-success">💾 Save All to Inventory</button>
+                <button onclick="saveToDatabase()" class="btn btn-success">💾 Save to Inventory</button>
             </div>
+
             <p style="margin-top: 10px; color: #718096; font-size: 14px; text-align: center;">
-                💡 QR codes will print at the selected size. Use 10-15mm for tiny equipment.
+                💡 Use "Download Word Doc" to save QR codes in a printable document.
             </p>
         </div>
 
@@ -229,7 +233,7 @@
     </div>
 
     <script src="app.js"></script>
-    <!-- QRCode.js library for generating QR codes directly -->
+    <!-- QRCode.js for generating QR codes -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js">
     </script>
 
@@ -240,7 +244,6 @@
         document.addEventListener('DOMContentLoaded', function() {
             const form = document.getElementById('generateForm');
 
-            // Update the print size display when the dropdown changes
             document.getElementById('qrPrintSize').addEventListener('change', function() {
                 const size = this.value;
                 document.getElementById('printSizeDisplay').textContent = size;
@@ -271,7 +274,7 @@
         });
 
         // =============================================
-        // GENERATE QR CODES WITH PRINT SIZE CONTROL
+        // GENERATE QR CODES
         // =============================================
         async function generateQRCodes(itemName, quantity, category) {
             const outputDiv = document.getElementById('qrOutput');
@@ -282,19 +285,14 @@
             generatedQRs = [];
             generatedItems = [];
 
-            // Get print size in mm
             const printSizeMM = parseInt(document.getElementById('qrPrintSize').value);
             const color = document.getElementById('qrColor').value;
             const cols = parseInt(document.getElementById('cols').value);
 
-            // Calculate pixel size for screen display (print size * 3.78 for 96 DPI)
-            // But we want to show it at a reasonable size while printing at correct size
             const displaySize = Math.max(printSizeMM * 3, 100);
 
-            // Update grid columns
             gridDiv.className = `qr-grid cols-${cols}`;
 
-            // Update print size display
             document.getElementById('printSizeDisplay').textContent = printSizeMM;
             document.getElementById('totalWidthDisplay').textContent = printSizeMM * cols;
 
@@ -304,7 +302,6 @@
                 const uniqueId = generateUniqueId(itemName, i);
                 const fullUrl = `${baseUrl}?id=${uniqueId}`;
 
-                // Create a container for the QR code
                 const containerId = `qr-container-${uniqueId}`;
                 const div = document.createElement('div');
                 div.className = 'qr-item';
@@ -316,8 +313,6 @@
                 `;
                 gridDiv.appendChild(div);
 
-                // Generate QR code using QRCode.js with high resolution for printing
-                // We use a larger pixel size for screen display, but the print CSS handles the physical size
                 const qrContainer = document.getElementById(containerId);
                 const qr = new QRCode(qrContainer, {
                     text: fullUrl,
@@ -325,10 +320,9 @@
                     height: displaySize,
                     colorDark: color === 'black' ? '#000000' : color,
                     colorLight: '#ffffff',
-                    correctLevel: QRCode.CorrectLevel.H // High error correction for tiny prints
+                    correctLevel: QRCode.CorrectLevel.H
                 });
 
-                // Get the generated image data URL
                 const img = qrContainer.querySelector('img');
                 const dataUrl = img ? img.src : '';
 
@@ -350,6 +344,154 @@
 
             outputDiv.scrollIntoView({ behavior: 'smooth' });
             showToast(`✅ Generated ${generatedQRs.length} QR codes at ${printSizeMM}mm each!`);
+        }
+
+        // =============================================
+        // DOWNLOAD WORD DOCUMENT
+        // =============================================
+        function downloadWordDoc() {
+            if (generatedQRs.length === 0) {
+                alert('No QR codes to export. Generate some first!');
+                return;
+            }
+
+            // Build the Word document HTML
+            let htmlContent = `
+                <!DOCTYPE html>
+                <html xmlns:o='urn:schemas-microsoft-com:office:office' 
+                      xmlns:w='urn:schemas-microsoft-com:office:word' 
+                      xmlns='http://www.w3.org/TR/REC-html40'>
+                <head>
+                    <meta charset="utf-8">
+                    <title>QR Codes</title>
+                    <!--[if gte mso 9]>
+                    <xml>
+                        <w:WordDocument>
+                            <w:View>Print</w:View>
+                            <w:Zoom>100</w:Zoom>
+                        </w:WordDocument>
+                    </xml>
+                    <![endif]-->
+                    <style>
+                        body {
+                            font-family: Arial, sans-serif;
+                            padding: 20px;
+                            margin: 0;
+                        }
+                        h1 {
+                            text-align: center;
+                            color: #2d3748;
+                            font-size: 18pt;
+                            margin-bottom: 20px;
+                        }
+                        .qr-grid {
+                            display: table;
+                            width: 100%;
+                            border-collapse: collapse;
+                        }
+                        .qr-row {
+                            display: table-row;
+                        }
+                        .qr-cell {
+                            display: table-cell;
+                            text-align: center;
+                            padding: 10px;
+                            border: 1px solid #e2e8f0;
+                            vertical-align: middle;
+                            width: ${100 / parseInt(document.getElementById('cols').value)}%;
+                        }
+                        .qr-cell img {
+                            max-width: 100%;
+                            height: auto;
+                        }
+                        .qr-cell .id-label {
+                            font-weight: bold;
+                            font-size: 10pt;
+                            margin-top: 5px;
+                            color: #2d3748;
+                        }
+                        .qr-cell .category-label {
+                            font-size: 8pt;
+                            color: #718096;
+                        }
+                        .qr-cell .size-label {
+                            font-size: 7pt;
+                            color: #a0aec0;
+                            display: block;
+                        }
+                        .footer {
+                            text-align: center;
+                            font-size: 8pt;
+                            color: #a0aec0;
+                            margin-top: 20px;
+                            border-top: 1px solid #e2e8f0;
+                            padding-top: 10px;
+                        }
+                        @page {
+                            size: A4 portrait;
+                            margin: 1.5cm;
+                        }
+                        @media print {
+                            body { padding: 0; }
+                            .qr-cell { border: none; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <h1>📦 QR Codes - ${new Date().toLocaleDateString()}</h1>
+                    <div class="qr-grid">
+            `;
+
+            const cols = parseInt(document.getElementById('cols').value);
+            let cellCount = 0;
+
+            generatedQRs.forEach((qr, index) => {
+                if (cellCount === 0) {
+                    htmlContent += `<div class="qr-row">`;
+                }
+
+                htmlContent += `
+                    <div class="qr-cell">
+                        <img src="${qr.url}" alt="${qr.id}" style="max-width:100%; height:auto;">
+                        <div class="id-label">${qr.id}</div>
+                        <div class="category-label">${qr.category}</div>
+                        <span class="size-label">${qr.printSize}mm</span>
+                    </div>
+                `;
+
+                cellCount++;
+
+                if (cellCount === cols || index === generatedQRs.length - 1) {
+                    htmlContent += `</div>`;
+                    cellCount = 0;
+                }
+            });
+
+            htmlContent += `
+                    </div>
+                    <div class="footer">
+                        Generated on ${new Date().toLocaleString()} | ${generatedQRs.length} QR codes | ${cols} columns
+                    </div>
+                </body>
+                </html>
+            `;
+
+            // Create a Blob with the Word document
+            const blob = new Blob([htmlContent], {
+                type: 'application/msword;charset=utf-8'
+            });
+
+            // Download the file
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `QR_Codes_${new Date().toISOString().split('T')[0]}.doc`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+
+            showToast(`✅ Downloaded Word document with ${generatedQRs.length} QR codes!`);
         }
 
         // =============================================
@@ -473,7 +615,7 @@
 
             if (btn) {
                 btn.disabled = false;
-                btn.textContent = '💾 Save All to Inventory';
+                btn.textContent = '💾 Save to Inventory';
             }
         }
 
@@ -521,7 +663,7 @@
         `;
         document.head.appendChild(style);
 
-        console.log('✅ QR Generator loaded with print size control!');
+        console.log('✅ QR Generator loaded with Word Doc support!');
     </script>
 </body>
 </html>
