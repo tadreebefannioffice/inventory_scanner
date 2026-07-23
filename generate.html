@@ -210,9 +210,6 @@
                 &nbsp;|&nbsp; 📐 <strong>Total width:</strong> <span id="totalWidthDisplay">30</span>mm per row
             </div>
 
-            <!-- ========================================== -->
-            <!-- EXPANDED BUTTON GROUP WITH WORD DOC        -->
-            <!-- ========================================== -->
             <div class="btn-group">
                 <button onclick="downloadAllQRs()" class="btn btn-primary">⬇️ Download PNGs</button>
                 <button onclick="downloadQRZip()" class="btn btn-secondary">📦 Download ZIP</button>
@@ -233,7 +230,6 @@
     </div>
 
     <script src="app.js"></script>
-    <!-- QRCode.js for generating QR codes -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js">
     </script>
 
@@ -323,8 +319,17 @@
                     correctLevel: QRCode.CorrectLevel.H
                 });
 
+                // Get the image data as base64
                 const img = qrContainer.querySelector('img');
-                const dataUrl = img ? img.src : '';
+                let dataUrl = img ? img.src : '';
+
+                // If no img, try to get from canvas
+                if (!dataUrl || dataUrl === '') {
+                    const canvas = qrContainer.querySelector('canvas');
+                    if (canvas) {
+                        dataUrl = canvas.toDataURL('image/png');
+                    }
+                }
 
                 generatedQRs.push({
                     id: uniqueId,
@@ -347,7 +352,7 @@
         }
 
         // =============================================
-        // DOWNLOAD WORD DOCUMENT
+        // DOWNLOAD WORD DOCUMENT - FIXED VERSION
         // =============================================
         function downloadWordDoc() {
             if (generatedQRs.length === 0) {
@@ -355,7 +360,9 @@
                 return;
             }
 
-            // Build the Word document HTML
+            const cols = parseInt(document.getElementById('cols').value);
+
+            // Build the Word document HTML with proper image embedding
             let htmlContent = `
                 <!DOCTYPE html>
                 <html xmlns:o='urn:schemas-microsoft-com:office:office' 
@@ -374,296 +381,310 @@
                     <![endif]-->
                     <style>
                         body {
-                            font-family: Arial, sans-serif;
-                            padding: 20px;
+                            font-family: 'Segoe UI', Arial, sans-serif;
+                            padding: 30px;
                             margin: 0;
+                            background: white;
                         }
                         h1 {
                             text-align: center;
                             color: #2d3748;
-                            font-size: 18pt;
-                            margin-bottom: 20px;
+                            font-size: 22pt;
+                            margin-bottom: 10px;
+                            border-bottom: 3px solid #4299e1;
+                            padding-bottom: 10px;
                         }
-                        .qr-grid {
-                            display: table;
+                        .subtitle {
+                            text-align: center;
+                            color: #718096;
+                            font-size: 11pt;
+                            margin-bottom: 25px;
+                        }
+                        table {
                             width: 100%;
                             border-collapse: collapse;
+                            margin: 10px 0;
                         }
-                        .qr-row {
-                            display: table-row;
-                        }
-                        .qr-cell {
-                            display: table-cell;
+                        td {
                             text-align: center;
-                            padding: 10px;
+                            padding: 12px 8px;
                             border: 1px solid #e2e8f0;
                             vertical-align: middle;
-                            width: ${100 / parseInt(document.getElementById('cols').value)}%;
+                            width: ${100 / cols}%;
                         }
-                        .qr-cell img {
-                            max-width: 100%;
+                        td img {
+                            max-width: 90%;
                             height: auto;
+                            display: block;
+                            margin: 0 auto;
                         }
-                        .qr-cell .id-label {
-                            font-weight: bold;
-                            font-size: 10pt;
-                            margin-top: 5px;
+                        .id-label {
+                            font-weight: 700;
+                            font-size: 11pt;
                             color: #2d3748;
+                            margin-top: 6px;
                         }
-                        .qr-cell .category-label {
-                            font-size: 8pt;
+                        .category-label {
+                            font-size: 9pt;
                             color: #718096;
                         }
-                        .qr-cell .size-label {
-                            font-size: 7pt;
+                        .size-label {
+                            font-size: 8pt;
                             color: #a0aec0;
                             display: block;
+                            margin-top: 2px;
                         }
                         .footer {
                             text-align: center;
-                            font-size: 8pt;
+                            font-size: 9pt;
                             color: #a0aec0;
-                            margin-top: 20px;
+                            margin-top: 25px;
                             border-top: 1px solid #e2e8f0;
-                            padding-top: 10px;
+                            padding-top: 12px;
                         }
+                        .no-print { display: block; }
                         @page {
                             size: A4 portrait;
                             margin: 1.5cm;
                         }
                         @media print {
-                            body { padding: 0; }
-                            .qr-cell { border: none; }
+                            .no-print { display: none; }
+                            td { border: none; }
                         }
-                    </style>
-                </head>
-                <body>
-                    <h1>📦 QR Codes - ${new Date().toLocaleDateString()}</h1>
-                    <div class="qr-grid">
-            `;
+    </style>
+</head>
+<body>
+    <h1>📦 QR Codes</h1>
+    <p class="subtitle">Generated on ${new Date().toLocaleString()}</p>
+    <table>
+        `;
 
-            const cols = parseInt(document.getElementById('cols').value);
-            let cellCount = 0;
+        let cellCount = 0;
 
-            generatedQRs.forEach((qr, index) => {
-                if (cellCount === 0) {
-                    htmlContent += `<div class="qr-row">`;
-                }
+        generatedQRs.forEach((qr, index) => {
+            if (cellCount === 0) {
+                htmlContent += `<tr>`;
+            }
 
-                htmlContent += `
-                    <div class="qr-cell">
-                        <img src="${qr.url}" alt="${qr.id}" style="max-width:100%; height:auto;">
-                        <div class="id-label">${qr.id}</div>
-                        <div class="category-label">${qr.category}</div>
-                        <span class="size-label">${qr.printSize}mm</span>
-                    </div>
-                `;
-
-                cellCount++;
-
-                if (cellCount === cols || index === generatedQRs.length - 1) {
-                    htmlContent += `</div>`;
-                    cellCount = 0;
-                }
-            });
+            // Embed the image directly as base64 with proper mime type
+            const imgSrc = qr.url || '';
+            const imgTag = imgSrc ? `<img src="${imgSrc}" alt="${qr.id}" />` :
+                `<div style="width:80px;height:80px;background:#eee;margin:0 auto;border:2px solid #ccc;display:flex;align-items:center;justify-content:center;font-size:10px;color:#999;">QR</div>`;
 
             htmlContent += `
-                    </div>
-                    <div class="footer">
-                        Generated on ${new Date().toLocaleString()} | ${generatedQRs.length} QR codes | ${cols} columns
-                    </div>
-                </body>
-                </html>
+                <td>
+                    ${imgTag}
+                    <div class="id-label">${qr.id}</div>
+                    <div class="category-label">${qr.category}</div>
+                    <span class="size-label">${qr.printSize}mm</span>
+                </td>
             `;
 
-            // Create a Blob with the Word document
-            const blob = new Blob([htmlContent], {
-                type: 'application/msword;charset=utf-8'
-            });
+            cellCount++;
 
-            // Download the file
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `QR_Codes_${new Date().toISOString().split('T')[0]}.doc`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-
-            showToast(`✅ Downloaded Word document with ${generatedQRs.length} QR codes!`);
-        }
-
-        // =============================================
-        // DOWNLOAD FUNCTIONS
-        // =============================================
-        function downloadAllQRs() {
-            if (generatedQRs.length === 0) {
-                alert('No QR codes to download.');
-                return;
+            if (cellCount === cols || index === generatedQRs.length - 1) {
+                htmlContent += `</tr>`;
+                cellCount = 0;
             }
+        });
 
-            generatedQRs.forEach((qr, index) => {
-                setTimeout(() => {
-                    const link = document.createElement('a');
-                    link.download = `${qr.id}.png`;
-                    link.href = qr.url;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                }, index * 500);
-            });
-            showToast(`⬇️ Downloading ${generatedQRs.length} QR codes...`);
-        }
+        htmlContent += `
+    </table>
+    <div class="footer">
+        ${generatedQRs.length} QR codes | ${cols} columns per row | Print size: ${generatedQRs[0]?.printSize || 10}mm
+    </div>
+</body>
+</html>
+`;
 
-        function downloadQRZip() {
-            if (generatedQRs.length === 0) {
-                alert('No QR codes to download.');
-                return;
-            }
+// Create the blob with proper Word MIME type
+const blob = new Blob([htmlContent], {
+type: 'application/msword;charset=utf-8'
+});
 
-            const script = document.createElement('script');
-            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
-            script.onload = function() {
-                const zip = new JSZip();
-                const imgFolder = zip.folder('QR_Codes');
-                let loaded = 0;
+// Download
+const url = URL.createObjectURL(blob);
+const link = document.createElement('a');
+link.href = url;
+link.download = `QR_Codes_${new Date().toISOString().split('T')[0]}.doc`;
+document.body.appendChild(link);
+link.click();
+document.body.removeChild(link);
+URL.revokeObjectURL(url);
 
-                generatedQRs.forEach((qr) => {
-                    fetch(qr.url)
-                        .then(response => response.blob())
-                        .then(blob => {
-                            imgFolder.file(`${qr.id}.png`, blob);
-                            loaded++;
-                            if (loaded === generatedQRs.length) {
-                                zip.generateAsync({ type: 'blob' })
-                                    .then(content => {
-                                        const link = document.createElement('a');
-                                        link.download =
-                                            `QR_Codes_${new Date().toISOString().split('T')[0]}.zip`;
-                                        link.href = URL.createObjectURL(content);
-                                        document.body.appendChild(link);
-                                        link.click();
-                                        document.body.removeChild(link);
-                                        showToast(`✅ Downloaded ZIP with ${generatedQRs.length} QR codes!`);
-                                    });
-                            }
-                        });
-                });
-            };
-            document.head.appendChild(script);
-            showToast(`⏳ Creating ZIP file...`);
-        }
+showToast(`✅ Downloaded Word document with ${generatedQRs.length} QR codes!`);
+}
 
-        // =============================================
-        // SAVE TO DATABASE
-        // =============================================
-        async function saveToDatabase() {
-            const items = generatedItems;
-            if (!items || items.length === 0) {
-                alert('No items to save. Generate QR codes first.');
-                return;
-            }
+// =============================================
+// DOWNLOAD FUNCTIONS
+// =============================================
+function downloadAllQRs() {
+if (generatedQRs.length === 0) {
+alert('No QR codes to download.');
+return;
+}
 
-            const confirmSave = confirm(`Save ${items.length} items to the inventory database?`);
-            if (!confirmSave) return;
+generatedQRs.forEach((qr, index) => {
+setTimeout(() => {
+const link = document.createElement('a');
+link.download = `${qr.id}.png`;
+link.href = qr.url;
+document.body.appendChild(link);
+link.click();
+document.body.removeChild(link);
+}, index * 500);
+});
+showToast(`⬇️ Downloading ${generatedQRs.length} QR codes...`);
+}
 
-            const btn = document.querySelector('.btn-success');
-            if (btn) {
-                btn.disabled = true;
-                btn.textContent = '⏳ Saving...';
-            }
+function downloadQRZip() {
+if (generatedQRs.length === 0) {
+alert('No QR codes to download.');
+return;
+}
 
-            try {
-                let saved = 0;
-                let errors = 0;
+const script = document.createElement('script');
+script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+script.onload = function() {
+const zip = new JSZip();
+const imgFolder = zip.folder('QR_Codes');
+let loaded = 0;
 
-                for (const item of items) {
-                    try {
-                        const existing = await getItemById(item.unique_id);
-                        if (!existing) {
-                            const result = await saveItem(item);
-                            if (result && result.success === false) {
-                                errors++;
-                            } else {
-                                saved++;
-                            }
-                        } else {
-                            await updateItem(item.unique_id, {
-                                category: item.category,
-                                status: 'unregistered'
-                            });
-                            saved++;
-                        }
-                    } catch (itemError) {
-                        console.error('Error saving item:', item.unique_id, itemError);
-                        errors++;
-                    }
-                }
+generatedQRs.forEach((qr) => {
+fetch(qr.url)
+.then(response => response.blob())
+.then(blob => {
+imgFolder.file(`${qr.id}.png`, blob);
+loaded++;
+if (loaded === generatedQRs.length) {
+zip.generateAsync({ type: 'blob' })
+.then(content => {
+const link = document.createElement('a');
+link.download =
+`QR_Codes_${new Date().toISOString().split('T')[0]}.zip`;
+link.href = URL.createObjectURL(content);
+document.body.appendChild(link);
+link.click();
+document.body.removeChild(link);
+showToast(`✅ Downloaded ZIP with ${generatedQRs.length} QR codes!`);
+});
+}
+});
+});
+};
+document.head.appendChild(script);
+showToast(`⏳ Creating ZIP file...`);
+}
 
-                let message = `✅ ${saved} items saved to inventory!`;
-                if (errors > 0) {
-                    message += `\n⚠️ ${errors} items had errors.`;
-                }
-                alert(message);
-                document.querySelector('#qrOutput h3').textContent = '✅ QR Codes Generated and Saved!';
+// =============================================
+// SAVE TO DATABASE
+// =============================================
+async function saveToDatabase() {
+const items = generatedItems;
+if (!items || items.length === 0) {
+alert('No items to save. Generate QR codes first.');
+return;
+}
 
-            } catch (error) {
-                console.error('Error saving to database:', error);
-                alert('❌ Error saving to database. Please check your connection.');
-            }
+const confirmSave = confirm(`Save ${items.length} items to the inventory database?`);
+if (!confirmSave) return;
 
-            if (btn) {
-                btn.disabled = false;
-                btn.textContent = '💾 Save to Inventory';
-            }
-        }
+const btn = document.querySelector('.btn-success');
+if (btn) {
+btn.disabled = true;
+btn.textContent = '⏳ Saving...';
+}
 
-        // =============================================
-        // TOAST NOTIFICATION
-        // =============================================
-        function showToast(message) {
-            const oldToast = document.querySelector('.toast-notification');
-            if (oldToast) oldToast.remove();
+try {
+let saved = 0;
+let errors = 0;
 
-            const toast = document.createElement('div');
-            toast.className = 'toast-notification';
-            toast.style.cssText = `
-                position: fixed;
-                bottom: 20px;
-                left: 50%;
-                transform: translateX(-50%);
-                background: #48bb78;
-                color: white;
-                padding: 12px 24px;
-                border-radius: 8px;
-                font-weight: 600;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-                z-index: 1000;
-                animation: slideUp 0.3s ease-out;
-                max-width: 90%;
-                text-align: center;
-            `;
-            toast.textContent = message;
-            document.body.appendChild(toast);
+for (const item of items) {
+try {
+const existing = await getItemById(item.unique_id);
+if (!existing) {
+const result = await saveItem(item);
+if (result && result.success === false) {
+errors++;
+} else {
+saved++;
+}
+} else {
+await updateItem(item.unique_id, {
+category: item.category,
+status: 'unregistered'
+});
+saved++;
+}
+} catch (itemError) {
+console.error('Error saving item:', item.unique_id, itemError);
+errors++;
+}
+}
 
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                toast.style.transition = 'opacity 0.5s';
-                setTimeout(() => toast.remove(), 500);
-            }, 3000);
-        }
+let message = `✅ ${saved} items saved to inventory!`;
+if (errors > 0) {
+message += `\n⚠️ ${errors} items had errors.`;
+}
+alert(message);
+document.querySelector('#qrOutput h3').textContent = '✅ QR Codes Generated and Saved!';
 
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes slideUp {
-                from { opacity: 0; transform: translateX(-50%) translateY(20px); }
-                to { opacity: 1; transform: translateX(-50%) translateY(0); }
-            }
-        `;
-        document.head.appendChild(style);
+} catch (error) {
+console.error('Error saving to database:', error);
+alert('❌ Error saving to database. Please check your connection.');
+}
 
-        console.log('✅ QR Generator loaded with Word Doc support!');
-    </script>
+if (btn) {
+btn.disabled = false;
+btn.textContent = '💾 Save to Inventory';
+}
+}
+
+// =============================================
+// TOAST NOTIFICATION
+// =============================================
+function showToast(message) {
+const oldToast = document.querySelector('.toast-notification');
+if (oldToast) oldToast.remove();
+
+const toast = document.createElement('div');
+toast.className = 'toast-notification';
+toast.style.cssText = `
+position: fixed;
+bottom: 20px;
+left: 50%;
+transform: translateX(-50%);
+background: #48bb78;
+color: white;
+padding: 12px 24px;
+border-radius: 8px;
+font-weight: 600;
+box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+z-index: 1000;
+animation: slideUp 0.3s ease-out;
+max-width: 90%;
+text-align: center;
+`;
+toast.textContent = message;
+document.body.appendChild(toast);
+
+setTimeout(() => {
+toast.style.opacity = '0';
+toast.style.transition = 'opacity 0.5s';
+setTimeout(() => toast.remove(), 500);
+}, 3000);
+}
+
+const style = document.createElement('style');
+style.textContent = `
+@keyframes slideUp {
+from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+`;
+document.head.appendChild(style);
+
+console.log('✅ QR Generator loaded with fixed Word Doc support!');
+</script>
 </body>
 </html>
