@@ -50,21 +50,6 @@
             width: 100% !important;
             height: auto !important;
         }
-        /* Camera zoom overlay */
-        #zoomOverlay {
-            position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.7);
-            padding: 8px 16px;
-            border-radius: 20px;
-            color: white;
-            font-size: 12px;
-            display: none;
-            z-index: 10;
-            backdrop-filter: blur(4px);
-        }
         #loading {
             text-align: center;
             padding: 40px;
@@ -278,28 +263,24 @@
             background: #fed7d7;
             color: #742a2a;
         }
-        /* Settings bar for scanner */
-        .scanner-settings {
-            display: flex;
-            gap: 10px;
-            margin: 10px 0;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-        .scanner-settings select,
-        .scanner-settings button {
-            padding: 8px 14px;
-            border: 2px solid #e2e8f0;
+        .db-status {
+            font-size: 12px;
+            color: #718096;
+            text-align: center;
+            margin-top: 10px;
+            padding: 8px;
+            background: #f7fafc;
             border-radius: 8px;
-            font-size: 14px;
-            background: white;
         }
-        .scanner-settings select:focus {
-            outline: none;
-            border-color: #4299e1;
+        .db-status span {
+            font-weight: 600;
         }
-        .scanner-settings .btn {
-            margin: 0;
+        .export-btn {
+            background: #805ad5;
+            color: white;
+        }
+        .export-btn:hover {
+            background: #6b46c1;
         }
     </style>
 </head>
@@ -310,23 +291,6 @@
         <p class="subtitle">Scan a QR code to view or register items</p>
 
         <!-- ========================================== -->
-        <!-- SCANNER SETTINGS                           -->
-        <!-- ========================================== -->
-        <div class="scanner-settings no-print">
-            <select id="scannerResolution">
-                <option value="720">Standard (720p)</option>
-                <option value="1080" selected>HD (1080p)</option>
-                <option value="2160">4K (2160p) - Best for tiny QR</option>
-            </select>
-            <button onclick="toggleZoom()" class="btn btn-outline" id="zoomBtn">
-                🔍 Zoom In
-            </button>
-            <button onclick="toggleFlash()" class="btn btn-outline" id="flashBtn">
-                ⚡ Flash
-            </button>
-        </div>
-
-        <!-- ========================================== -->
         <!-- SCANNER AREA                               -->
         <!-- ========================================== -->
         <div id="scanner">
@@ -335,7 +299,6 @@
                 <p style="font-size:12px; margin-top:10px; color:#a0aec0;">Please allow camera access when prompted</p>
                 <button onclick="initializeScanner()" class="btn btn-primary" style="margin-top:10px;">📷 Start Camera</button>
             </div>
-            <div id="zoomOverlay">🔍 Zoom: 1x</div>
         </div>
 
         <!-- ========================================== -->
@@ -356,7 +319,7 @@
         </div>
 
         <!-- ========================================== -->
-        <!-- MODALS                                     -->
+        <!-- REGISTER MODAL                             -->
         <!-- ========================================== -->
         <div id="registerModal" class="modal-overlay">
             <div class="modal">
@@ -387,6 +350,9 @@
             </div>
         </div>
 
+        <!-- ========================================== -->
+        <!-- UPDATE MODAL                               -->
+        <!-- ========================================== -->
         <div id="updateModal" class="modal-overlay">
             <div class="modal">
                 <button class="modal-close" onclick="closeModal('updateModal')">✕</button>
@@ -414,9 +380,28 @@
             </div>
         </div>
 
+        <!-- ========================================== -->
+        <!-- NAVIGATION & EXPORT                        -->
+        <!-- ========================================== -->
         <div class="nav-links">
             <a href="generate.html">🏷️ Generate QR Codes</a> |
             <a href="dashboard.html">📊 Dashboard</a>
+        </div>
+
+        <div style="margin-top:15px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+            <button onclick="exportData()" class="btn export-btn" style="font-size:14px; padding:8px 16px;">
+                📥 Export Data (JSON)
+            </button>
+            <button onclick="exportCSV()" class="btn export-btn" style="font-size:14px; padding:8px 16px; background:#38a169;">
+                📊 Export CSV
+            </button>
+            <button onclick="clearAllData()" class="btn btn-danger" style="font-size:14px; padding:8px 16px;">
+                🗑️ Clear All Data
+            </button>
+        </div>
+
+        <div class="db-status" id="dbStatus">
+            💾 Database: <span id="itemCount">0</span> items stored locally on this device
         </div>
     </div>
 
@@ -425,91 +410,216 @@
 
     <script>
         // =============================================
-        // GOOGLE SHEETS CONFIGURATION
+        // INDEXEDDB DATABASE - 100% LOCAL STORAGE
+        // No external APIs needed!
         // =============================================
 
-        // Replace with your actual Google Sheet ID and published URL
-        const SHEET_ID = '1gCUrMIfLzoRa_xGyxC4P11O7A5_GtPKfH1ZjF8roR6U';
-        const PUBLISHED_URL = 'https://script.google.com/macros/s/AKfycbwBhwJGqOaWeHSbx-ObPWAKSKO1o1hMcMY5YJ5Fq3ARGL2_5NzIEFOqA5tj7tAvTjyc/exec';
-
-        // Replace with your Apps Script web app URL
-        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec';
+        const DB_NAME = 'InventoryScannerDB';
+        const STORE_NAME = 'items';
+        let db = null;
 
         // =============================================
-        // STATE
+        // INITIALIZE DATABASE
         // =============================================
-        let html5QrCode = null;
-        let currentItemId = null;
-        let isProcessing = false;
-        let currentItemData = null;
-        let sheetData = [];
-        let zoomLevel = 1;
-        let isFlashOn = false;
+        function initDatabase() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, 1);
+
+                request.onupgradeneeded = function(event) {
+                    const db = event.target.result;
+                    if (!db.objectStoreNames.contains(STORE_NAME)) {
+                        const store = db.createObjectStore(STORE_NAME, { keyPath: 'unique_id' });
+                        store.createIndex('category', 'category', { unique: false });
+                        store.createIndex('status', 'status', { unique: false });
+                        store.createIndex('assigned_to', 'assigned_to', { unique: false });
+                    }
+                };
+
+                request.onsuccess = function(event) {
+                    db = event.target.result;
+                    console.log('✅ Database initialized!');
+                    updateItemCount();
+                    resolve(db);
+                };
+
+                request.onerror = function(event) {
+                    console.error('❌ Database error:', event.target.error);
+                    reject(event.target.error);
+                };
+            });
+        }
 
         // =============================================
-        // GOOGLE SHEETS FUNCTIONS
+        // DATABASE OPERATIONS
         // =============================================
 
-        async function fetchSheetData() {
+        // Get all items
+        function getAllItems() {
+            return new Promise((resolve, reject) => {
+                if (!db) { reject(new Error('Database not initialized'));
+                    return; }
+                const transaction = db.transaction(STORE_NAME, 'readonly');
+                const store = transaction.objectStore(STORE_NAME);
+                const request = store.getAll();
+
+                request.onsuccess = function() {
+                    resolve(request.result || []);
+                };
+                request.onerror = function() {
+                    reject(request.error);
+                };
+            });
+        }
+
+        // Get item by ID
+        function getItemById(id) {
+            return new Promise((resolve, reject) => {
+                if (!db) { reject(new Error('Database not initialized'));
+                    return; }
+                const transaction = db.transaction(STORE_NAME, 'readonly');
+                const store = transaction.objectStore(STORE_NAME);
+                const request = store.get(id);
+
+                request.onsuccess = function() {
+                    resolve(request.result || null);
+                };
+                request.onerror = function() {
+                    reject(request.error);
+                };
+            });
+        }
+
+        // Save item (add or update)
+        function saveItem(itemData) {
+            return new Promise((resolve, reject) => {
+                if (!db) { reject(new Error('Database not initialized'));
+                    return; }
+                const transaction = db.transaction(STORE_NAME, 'readwrite');
+                const store = transaction.objectStore(STORE_NAME);
+                const request = store.put(itemData);
+
+                request.onsuccess = function() {
+                    updateItemCount();
+                    resolve(itemData);
+                };
+                request.onerror = function() {
+                    reject(request.error);
+                };
+            });
+        }
+
+        // Delete item
+        function deleteItem(id) {
+            return new Promise((resolve, reject) => {
+                if (!db) { reject(new Error('Database not initialized'));
+                    return; }
+                const transaction = db.transaction(STORE_NAME, 'readwrite');
+                const store = transaction.objectStore(STORE_NAME);
+                const request = store.delete(id);
+
+                request.onsuccess = function() {
+                    updateItemCount();
+                    resolve();
+                };
+                request.onerror = function() {
+                    reject(request.error);
+                };
+            });
+        }
+
+        // Clear all items
+        function clearAllItems() {
+            return new Promise((resolve, reject) => {
+                if (!db) { reject(new Error('Database not initialized'));
+                    return; }
+                const transaction = db.transaction(STORE_NAME, 'readwrite');
+                const store = transaction.objectStore(STORE_NAME);
+                const request = store.clear();
+
+                request.onsuccess = function() {
+                    updateItemCount();
+                    resolve();
+                };
+                request.onerror = function() {
+                    reject(request.error);
+                };
+            });
+        }
+
+        // Update item count in UI
+        function updateItemCount() {
+            if (!db) return;
+            const transaction = db.transaction(STORE_NAME, 'readonly');
+            const store = transaction.objectStore(STORE_NAME);
+            const request = store.count();
+
+            request.onsuccess = function() {
+                document.getElementById('itemCount').textContent = request.result;
+            };
+        }
+
+        // =============================================
+        // EXPORT FUNCTIONS
+        // =============================================
+
+        async function exportData() {
             try {
-                const response = await fetch(PUBLISHED_URL);
-                const csvText = await response.text();
-                const lines = csvText.split('\n');
-                const headers = lines[0].split(',').map(h => h.trim());
-                const data = [];
-                for (let i = 1; i < lines.length; i++) {
-                    if (lines[i].trim() === '') continue;
-                    const values = lines[i].split(',').map(v => v.trim());
-                    const row = {};
-                    headers.forEach((header, index) => {
-                        row[header] = values[index] || '';
-                    });
-                    data.push(row);
+                const items = await getAllItems();
+                const json = JSON.stringify(items, null, 2);
+                const blob = new Blob([json], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `inventory_${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showToast(`✅ Exported ${items.length} items as JSON!`);
+            } catch (error) {
+                showToast('❌ Export failed: ' + error.message, true);
+            }
+        }
+
+        async function exportCSV() {
+            try {
+                const items = await getAllItems();
+                if (items.length === 0) {
+                    showToast('No items to export.', true);
+                    return;
                 }
-                sheetData = data;
-                return data;
+
+                let csv = 'unique_id,category,serial_number,assigned_to,location,status,quantity,registered_at\n';
+                items.forEach(item => {
+                    csv +=
+                        `${item.unique_id || ''},${item.category || ''},${item.serial_number || ''},${item.assigned_to || ''},${item.location || ''},${item.status || ''},${item.quantity || 1},${item.registered_at || ''}\n`;
+                });
+
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `inventory_${new Date().toISOString().split('T')[0]}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showToast(`✅ Exported ${items.length} items as CSV!`);
             } catch (error) {
-                console.error('Error fetching sheet data:', error);
-                return [];
+                showToast('❌ Export failed: ' + error.message, true);
             }
         }
 
-        function getItemFromSheet(itemId) {
-            return sheetData.find(row => row.unique_id === itemId);
-        }
-
-        async function addItemToSheet(itemData) {
+        async function clearAllData() {
+            if (!confirm('⚠️ Delete ALL items from your local inventory? This cannot be undone!')) return;
             try {
-                console.log('📝 Sending item to Google Sheets:', itemData);
-                const response = await fetch(APPS_SCRIPT_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(itemData)
-                });
-                console.log('✅ Item sent to Google Sheets!');
-                return { success: true, data: itemData };
+                await clearAllItems();
+                showToast('✅ All items cleared!');
+                // Refresh UI
+                document.getElementById('result').style.display = 'none';
+                updateItemCount();
             } catch (error) {
-                console.error('❌ Error adding item:', error);
-                return { success: false, error: error.message };
-            }
-        }
-
-        async function updateItemInSheet(itemId, updateData) {
-            try {
-                console.log('✏️ Updating item:', itemId, updateData);
-                const payload = { unique_id: itemId, ...updateData };
-                const response = await fetch(APPS_SCRIPT_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                console.log('✅ Item update sent to Google Sheets!');
-                return { success: true };
-            } catch (error) {
-                console.error('❌ Error updating item:', error);
-                return { success: false, error: error.message };
+                showToast('❌ Failed to clear data: ' + error.message, true);
             }
         }
 
@@ -568,7 +678,7 @@
             btn.textContent = '⏳ Saving...';
 
             try {
-                const result = await addItemToSheet({
+                await saveItem({
                     unique_id: itemId,
                     category: category,
                     serial_number: serial,
@@ -579,13 +689,11 @@
                     registered_at: new Date().toISOString().split('T')[0]
                 });
 
-                if (result && result.success) {
-                    showToast('✅ Item registered successfully!');
-                    closeModal('registerModal');
-                    await lookupItem(itemId);
-                } else {
-                    showToast('❌ Failed to register item', true);
-                }
+                showToast('✅ Item registered successfully!');
+                closeModal('registerModal');
+                await lookupItem(itemId);
+                updateItemCount();
+
             } catch (error) {
                 console.error('Registration error:', error);
                 showToast('❌ Error: ' + error.message, true);
@@ -613,45 +721,28 @@
             }
 
             try {
-                await updateItemInSheet(itemId, { [field]: value });
-                showToast('✅ Item updated! Please check your Google Sheet.');
+                const item = await getItemById(itemId);
+                if (!item) {
+                    showToast('⚠️ Item not found', true);
+                    return;
+                }
+                item[field] = value;
+                await saveItem(item);
+                showToast('✅ Item updated successfully!');
                 closeModal('updateModal');
                 await lookupItem(itemId);
+                updateItemCount();
             } catch (error) {
                 showToast('❌ Error: ' + error.message, true);
             }
         }
 
         // =============================================
-        // SCANNER FUNCTIONS - UPGRADED FOR TINY QR
+        // SCANNER FUNCTIONS
         // =============================================
-
-        function toggleZoom() {
-            const zoomBtn = document.getElementById('zoomBtn');
-            const overlay = document.getElementById('zoomOverlay');
-            zoomLevel = zoomLevel === 1 ? 2 : zoomLevel === 2 ? 3 : 1;
-            zoomBtn.textContent = zoomLevel === 1 ? '🔍 Zoom In' : `🔍 Zoom ${zoomLevel}x`;
-            overlay.style.display = 'block';
-            overlay.textContent = `🔍 Zoom: ${zoomLevel}x`;
-            setTimeout(() => { overlay.style.display = 'none'; }, 1500);
-
-            // Restart scanner with new zoom
-            if (html5QrCode) {
-                html5QrCode.stop().then(() => {
-                    startScannerWithZoom();
-                });
-            }
-        }
-
-        function toggleFlash() {
-            isFlashOn = !isFlashOn;
-            const flashBtn = document.getElementById('flashBtn');
-            flashBtn.textContent = isFlashOn ? '⚡ Flash ON' : '⚡ Flash';
-            flashBtn.style.borderColor = isFlashOn ? '#f6e05e' : '#e2e8f0';
-            flashBtn.style.background = isFlashOn ? '#fefcbf' : 'white';
-            // Note: Flash control depends on browser/camera support
-            showToast(isFlashOn ? '💡 Flash enabled' : '💡 Flash disabled');
-        }
+        let html5QrCode = null;
+        let currentItemId = null;
+        let isProcessing = false;
 
         function initializeScanner() {
             const scannerDiv = document.getElementById('scanner');
@@ -674,19 +765,10 @@
                 const loadingEl = document.getElementById('loading');
                 if (loadingEl) loadingEl.innerHTML = '<p>📷 Starting camera...</p>';
 
-                // Get selected resolution
-                const resolution = parseInt(document.getElementById('scannerResolution').value);
-
                 const config = {
-                    fps: 15, // Higher FPS for faster detection
+                    fps: 15,
                     qrbox: { width: 300, height: 300 },
-                    aspectRatio: 1.0,
-                    videoConstraints: {
-                        facingMode: 'environment',
-                        width: { ideal: resolution },
-                        height: { ideal: resolution },
-                        frameRate: { ideal: 30 }
-                    }
+                    aspectRatio: 1.0
                 };
 
                 html5QrCode.start({ facingMode: 'environment' }, config, onScanSuccess, onScanError)
@@ -712,24 +794,6 @@
                     loadingEl.innerHTML = `<p style="color:#e53e3e;">❌ Scanner not supported</p>`;
                 }
             }
-        }
-
-        function startScannerWithZoom() {
-            if (!html5QrCode) return;
-            const resolution = parseInt(document.getElementById('scannerResolution').value);
-            const config = {
-                fps: 15,
-                qrbox: { width: 300, height: 300 },
-                aspectRatio: 1.0,
-                videoConstraints: {
-                    facingMode: 'environment',
-                    width: { ideal: resolution },
-                    height: { ideal: resolution },
-                    frameRate: { ideal: 30 }
-                }
-            };
-            html5QrCode.start({ facingMode: 'environment' }, config, onScanSuccess, onScanError)
-                .catch(() => {});
         }
 
         function onScanSuccess(decodedText) {
@@ -766,19 +830,20 @@
             }
         }
 
-        function onScanError(error) {
-            // Ignore frequent errors
-        }
+        function onScanError(error) {}
 
         function restartScanner() {
             document.getElementById('result').style.display = 'none';
             isProcessing = false;
             currentItemId = null;
-            currentItemData = null;
 
             if (html5QrCode) {
                 html5QrCode.stop().then(() => {
-                    startScannerWithZoom();
+                    html5QrCode.start({ facingMode: 'environment' }, {
+                        fps: 15,
+                        qrbox: { width: 300, height: 300 },
+                        aspectRatio: 1.0
+                    }, onScanSuccess, onScanError);
                 }).catch(() => initializeScanner());
             } else {
                 initializeScanner();
@@ -799,8 +864,7 @@
             currentItemId = itemId;
 
             try {
-                await fetchSheetData();
-                const item = getItemFromSheet(itemId);
+                const item = await getItemById(itemId);
 
                 if (!item) {
                     itemTitle.textContent = '🔵 New Item Detected!';
@@ -839,8 +903,8 @@
             } catch (error) {
                 console.error('Lookup error:', error);
                 itemTitle.textContent = '⚠️ Error';
-                itemDetails.innerHTML = `<p style="color:#e53e3e;">Error connecting to Google Sheets: ${error.message}</p>`;
-                showToast('❌ Database connection error', true);
+                itemDetails.innerHTML = `<p style="color:#e53e3e;">Error: ${error.message}</p>`;
+                showToast('❌ Database error', true);
             }
         }
 
@@ -848,18 +912,24 @@
         // START
         // =============================================
         document.addEventListener('DOMContentLoaded', function() {
-            const params = new URLSearchParams(window.location.search);
-            const id = params.get('id');
-            if (id) {
-                document.getElementById('loading').innerHTML = '<p>📱 Looking up item...</p>';
-                lookupItem(id);
-                return;
-            }
-            initializeScanner();
+            // Initialize database first
+            initDatabase().then(() => {
+                console.log('✅ Database ready!');
+                const params = new URLSearchParams(window.location.search);
+                const id = params.get('id');
+                if (id) {
+                    document.getElementById('loading').innerHTML = '<p>📱 Looking up item...</p>';
+                    lookupItem(id);
+                    return;
+                }
+                initializeScanner();
+            }).catch((error) => {
+                console.error('Database init failed:', error);
+                showToast('❌ Database initialization failed', true);
+            });
         });
 
-        console.log('🚀 Inventory Scanner loaded with Tiny QR support!');
-        console.log('📊 Sheet ID:', SHEET_ID);
+        console.log('🚀 Inventory Scanner loaded with local database!');
     </script>
 </body>
 </html>
