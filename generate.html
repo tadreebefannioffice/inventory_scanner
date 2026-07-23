@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Bulk QR Code Generator</title>
     <link rel="stylesheet" href="style.css" />
-    <!-- Libraries for PDF and image capture -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js">
     </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js">
@@ -244,12 +243,31 @@
                 grid-template-columns: repeat(2, 1fr);
             }
         }
+        .unique-id-info {
+            background: #ebf8ff;
+            border: 1px solid #bee3f8;
+            border-radius: 8px;
+            padding: 10px 15px;
+            margin: 10px 0;
+            font-size: 13px;
+            color: #2b6cb0;
+        }
+        .unique-id-info strong {
+            color: #2c5282;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>📦 Bulk QR Code Generator</h1>
         <p class="subtitle">Upload a list or paste items to generate QR codes in bulk</p>
+
+        <div class="unique-id-info">
+            🔑 <strong>Unique IDs:</strong> Each item gets its own unique prefix (first 3 letters of the item name).
+            Even if items are in the same category, they will have different IDs.
+            <br>
+            <strong>Example:</strong> "Panel hammer" → <code>PAN-001</code>, "Paint brush" → <code>PAI-001</code>
+        </div>
 
         <!-- ========================================== -->
         <!-- TAB BAR                                    -->
@@ -267,12 +285,12 @@
             <div class="format-hint">
                 <strong>📋 Format:</strong> Enter one item per line. Use <code>Item Name, Quantity</code> or <code>Item Name x Quantity</code>.<br />
                 <strong>Examples:</strong><br />
-                <code>Laptop, 10</code> → Generates LAP-001 to LAP-010<br />
-                <code>Camera x 5</code> → Generates CAM-001 to CAM-005<br />
-                <code>Monitor, 3</code> → Generates MON-001 to MON-003
+                <code>Panel hammer, 6</code> → Generates PAN-001 to PAN-006<br />
+                <code>Claw hammer, 10</code> → Generates CLA-001 to CLA-010<br />
+                <code>Paint brush x 5</code> → Generates PAI-001 to PAI-005
             </div>
 
-            <textarea id="bulkInput" class="textarea-input" placeholder="Laptop, 10&#10;Camera x 5&#10;Monitor, 3&#10;Projector, 2"></textarea>
+            <textarea id="bulkInput" class="textarea-input" placeholder="Panel hammer, 6&#10;Claw hammer, 10&#10;Scraper, 4&#10;Adjustable wrench, 5"></textarea>
 
             <div style="margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap;">
                 <button onclick="parseBulkInput()" class="btn btn-primary">🔄 Generate QR Codes</button>
@@ -287,7 +305,7 @@
         <div id="tab-upload" class="tab-content">
             <div class="upload-zone" id="uploadZone">
                 <span class="icon">📂</span>
-                <p><strong>Drop your CSV or Excel file here</strong></p>
+                <p><strong>Drop your CSV file here</strong></p>
                 <p style="font-size:14px; color:#718096;">or click to browse</p>
                 <p class="hint">Supports .csv files (Excel files can be saved as CSV)</p>
                 <input type="file" id="fileInput" accept=".csv" style="display:none;" />
@@ -295,8 +313,8 @@
 
             <div class="format-hint">
                 <strong>📊 CSV Format:</strong><br />
-                Column A: <strong>Item Name</strong> (e.g., Laptop)<br />
-                Column B: <strong>Quantity</strong> (e.g., 10)
+                Column A: <strong>Item Name</strong> (e.g., Panel hammer)<br />
+                Column B: <strong>Quantity</strong> (e.g., 6)
             </div>
 
             <div style="margin-top: 10px;">
@@ -314,7 +332,7 @@
                 <div class="count" id="totalItemsCount">0</div>
                 <div class="label">Total QR Codes to Generate</div>
                 <div style="margin-top: 5px; font-size: 13px; color: #718096;">
-                    <span id="categoryCount">0</span> categories
+                    <span id="categoryCount">0</span> items
                 </div>
             </div>
 
@@ -393,7 +411,7 @@
         // =============================================
         function loadSampleData() {
             document.getElementById('bulkInput').value =
-                `Laptop, 10\nCamera x 5\nMonitor, 3\nProjector, 2\nScanner, 4`;
+                `Panel hammer, 6\nClaw hammer, 10\nScraper, 4\nAdjustable wrench, 5\nHacksaw handle, 1\nBucket, 4\nBlow drier, 1\nExtension cord, 2\nJack plane, 2\nGarden knives, 5\nT-Ruler, 5\nNail punch, 1\nHandsaw, 3\nChip hammer, 5\nG-Clamp, 4\nCounter self drilling screw, 2\nBolt & Nuts 1/4 x 3in, 1\nPliers, 6`;
             showToast('📥 Sample data loaded! Click "Generate QR Codes" to proceed.');
         }
 
@@ -436,7 +454,7 @@
             }
 
             bulkItems = items;
-            showToast(`✅ Loaded ${items.length} categories with ${items.reduce((sum, i) => sum + i.quantity, 0)} total items`);
+            showToast(`✅ Loaded ${items.length} items with ${items.reduce((sum, i) => sum + i.quantity, 0)} total QR codes`);
             switchTab('preview');
             updatePreview();
         }
@@ -530,10 +548,10 @@
             }
 
             bulkItems = items;
-            showToast(`✅ Loaded ${items.length} categories from file!`);
+            showToast(`✅ Loaded ${items.length} items from file!`);
             document.getElementById('processFileBtn').style.display = 'inline-block';
             document.getElementById('filePreview').innerHTML = `
-                    <p style="color:#48bb78; text-align:center;">✅ File loaded: ${items.length} categories found</p>
+                    <p style="color:#48bb78; text-align:center;">✅ File loaded: ${items.length} items found</p>
                 `;
             switchTab('preview');
             updatePreview();
@@ -564,18 +582,17 @@
                         <thead>
                             <tr>
                                 <th>#</th>
-                                <th>Category</th>
+                                <th>Item Name</th>
                                 <th>Quantity</th>
-                                <th>IDs</th>
+                                <th>QR Codes</th>
                                 <th>Action</th>
                             </tr>
                         </thead>
                         <tbody>
                 `;
 
-            let counter = 1;
             bulkItems.forEach((item, index) => {
-                const prefix = item.name.substring(0, 3).toUpperCase();
+                const prefix = getPrefix(item.name);
                 const ids = [];
                 for (let i = 1; i <= item.quantity; i++) {
                     ids.push(`${prefix}-${String(i).padStart(3, '0')}`);
@@ -587,7 +604,7 @@
                             <td><span class="category-badge">${item.name}</span></td>
                             <td>${item.quantity}</td>
                             <td style="font-size:12px; color:#718096;">${ids.join(', ')}</td>
-                            <td><button class="remove-btn" onclick="removeCategory(${index})">✕</button></td>
+                            <td><button class="remove-btn" onclick="removeItem(${index})">✕</button></td>
                         </tr>
                     `;
             });
@@ -601,10 +618,46 @@
             document.getElementById('batchActions').style.display = 'flex';
         }
 
-        function removeCategory(index) {
+        // =============================================
+        // HELPER: Get unique prefix from item name
+        // =============================================
+        function getPrefix(itemName) {
+            // Remove special characters and get first 3 letters
+            let clean = itemName.replace(/[^a-zA-Z0-9]/g, ' ');
+            let words = clean.split(' ').filter(w => w.length > 0);
+
+            let prefix = '';
+            if (words.length === 1) {
+                prefix = words[0].substring(0, 3).toUpperCase();
+            } else if (words.length >= 2) {
+                // Take first letter of first two words
+                prefix = (words[0][0] + words[1][0]).toUpperCase();
+                // Add one more letter from the first word if needed
+                if (prefix.length < 3 && words[0].length > 1) {
+                    prefix += words[0][1].toUpperCase();
+                }
+                // If still not 3, pad with X
+                while (prefix.length < 3) {
+                    prefix += 'X';
+                }
+            } else {
+                prefix = itemName.substring(0, 3).toUpperCase();
+                while (prefix.length < 3) {
+                    prefix += 'X';
+                }
+            }
+
+            // Ensure it's exactly 3 characters
+            return prefix.substring(0, 3);
+        }
+
+        // =============================================
+        // REMOVE ITEM
+        // =============================================
+        function removeItem(index) {
             bulkItems.splice(index, 1);
             updatePreview();
-            showToast('🗑️ Category removed');
+            showToast('🗑️ Item removed');
         }
 
         function clearAllItems() {
@@ -636,6 +689,7 @@
 
             const baseUrl = window.location.origin + window.location.pathname.replace('bulk-generate.html', 'index.html');
             const printSize = 150;
+            const usedIds = new Set();
 
             let totalGenerated = 0;
             let totalItems = bulkItems.reduce((sum, i) => sum + i.quantity, 0);
@@ -644,13 +698,23 @@
             generatedBulkQRs = {};
             qrCodeImages = {};
 
-            for (const category of bulkItems) {
-                const prefix = category.name.substring(0, 3).toUpperCase();
+            for (const item of bulkItems) {
+                const prefix = getPrefix(item.name);
                 const qrs = [];
                 const images = [];
 
-                for (let i = 1; i <= category.quantity; i++) {
-                    const uniqueId = `${prefix}-${String(i).padStart(3, '0')}`;
+                for (let i = 1; i <= item.quantity; i++) {
+                    let uniqueId = `${prefix}-${String(i).padStart(3, '0')}`;
+
+                    // Ensure uniqueness - if ID already exists, add a suffix
+                    let counter = 1;
+                    let originalId = uniqueId;
+                    while (usedIds.has(uniqueId)) {
+                        uniqueId = `${originalId}-${counter}`;
+                        counter++;
+                    }
+                    usedIds.add(uniqueId);
+
                     const fullUrl = `${baseUrl}?id=${uniqueId}`;
 
                     const containerId = `bulk-qr-${uniqueId}`;
@@ -670,7 +734,6 @@
                         correctLevel: QRCode.CorrectLevel.H
                     });
 
-                    // Get the image data
                     const img = tempDiv.querySelector('img');
                     let dataUrl = img ? img.src : '';
                     if (!dataUrl) {
@@ -683,13 +746,12 @@
                     const qrData = {
                         id: uniqueId,
                         url: dataUrl,
-                        category: category.name
+                        itemName: item.name
                     };
 
                     qrs.push(qrData);
                     images.push(dataUrl);
 
-                    // Clean up
                     document.body.removeChild(tempDiv);
 
                     current++;
@@ -697,13 +759,13 @@
                     statusDiv.textContent = `⏳ Generating ${uniqueId}... (${current}/${totalItems})`;
                 }
 
-                generatedBulkQRs[category.name] = qrs;
-                qrCodeImages[category.name] = images;
+                generatedBulkQRs[item.name] = qrs;
+                qrCodeImages[item.name] = images;
                 totalGenerated += qrs.length;
             }
 
             progressFill.style.width = '100%';
-            statusDiv.textContent = `✅ Generated ${totalGenerated} QR codes across ${bulkItems.length} categories!`;
+            statusDiv.textContent = `✅ Generated ${totalGenerated} QR codes across ${bulkItems.length} items!`;
             isGenerating = false;
 
             displayGeneratedQRs();
@@ -722,11 +784,11 @@
             const outputDiv = document.getElementById('generatedOutput');
             let html = '';
 
-            for (const [category, qrs] of Object.entries(generatedBulkQRs)) {
+            for (const [itemName, qrs] of Object.entries(generatedBulkQRs)) {
                 html += `
                         <div style="margin: 20px 0; padding: 15px; background: #f7fafc; border-radius: 8px;">
                             <h3 style="color: #2d3748; margin-bottom: 10px;">
-                                🏷️ ${category} <span style="font-size: 14px; color: #718096;">(${qrs.length} codes)</span>
+                                🏷️ ${itemName} <span style="font-size: 14px; color: #718096;">(${qrs.length} codes)</span>
                             </h3>
                             <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 15px;">
                     `;
@@ -743,16 +805,16 @@
                 html += `
                             </div>
                             <div style="margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap;">
-                                <button onclick="downloadCategoryPNGs('${category}')" class="btn btn-primary" style="font-size: 12px; padding: 6px 14px;">
+                                <button onclick="downloadItemPNGs('${itemName}')" class="btn btn-primary" style="font-size: 12px; padding: 6px 14px;">
                                     ⬇️ Download PNGs
                                 </button>
-                                <button onclick="downloadCategoryPDF('${category}')" class="btn btn-pdf" style="font-size: 12px; padding: 6px 14px;">
+                                <button onclick="downloadItemPDF('${itemName}')" class="btn btn-pdf" style="font-size: 12px; padding: 6px 14px;">
                                     📄 Download PDF
                                 </button>
-                                <button onclick="downloadCategoryWord('${category}')" class="btn btn-doc" style="font-size: 12px; padding: 6px 14px;">
+                                <button onclick="downloadItemWord('${itemName}')" class="btn btn-doc" style="font-size: 12px; padding: 6px 14px;">
                                     📄 Download Word
                                 </button>
-                                <button onclick="downloadCategoryZip('${category}')" class="btn btn-secondary" style="font-size: 12px; padding: 6px 14px;">
+                                <button onclick="downloadItemZip('${itemName}')" class="btn btn-secondary" style="font-size: 12px; padding: 6px 14px;">
                                     📦 Download ZIP
                                 </button>
                             </div>
@@ -764,19 +826,19 @@
         }
 
         // =============================================
-        // DOWNLOAD PDF - RELIABLE VERSION
+        // DOWNLOAD FUNCTIONS
         // =============================================
-        async function downloadCategoryPDF(category) {
-            const qrs = generatedBulkQRs[category];
+
+        async function downloadItemPDF(itemName) {
+            const qrs = generatedBulkQRs[itemName];
             if (!qrs || qrs.length === 0) {
-                showToast('No QR codes for this category.', true);
+                showToast('No QR codes for this item.', true);
                 return;
             }
 
-            showToast(`⏳ Generating PDF for ${category}...`);
+            showToast(`⏳ Generating PDF for ${itemName}...`);
 
             try {
-                // Create a container for the PDF content
                 const container = document.createElement('div');
                 container.style.cssText = `
                         position: absolute;
@@ -788,11 +850,10 @@
                     `;
                 document.body.appendChild(container);
 
-                // Build the content
                 let html = `
                         <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto;">
                             <h1 style="text-align: center; color: #2d3748; border-bottom: 3px solid #4299e1; padding-bottom: 10px;">
-                                📦 ${category} QR Codes
+                                📦 ${itemName} QR Codes
                             </h1>
                             <p style="text-align: center; color: #718096; margin-bottom: 20px;">
                                 Generated on ${new Date().toLocaleString()} | ${qrs.length} QR codes
@@ -820,7 +881,6 @@
 
                 container.innerHTML = html;
 
-                // Use html2canvas to capture the content
                 const canvas = await html2canvas(container, {
                     scale: 2,
                     useCORS: true,
@@ -830,10 +890,8 @@
                     height: container.scrollHeight
                 });
 
-                // Clean up
                 document.body.removeChild(container);
 
-                // Create PDF using jsPDF
                 const { jsPDF } = window.jspdf;
                 const pdf = new jsPDF('p', 'mm', 'a4');
                 const imgData = canvas.toDataURL('image/jpeg', 0.95);
@@ -842,9 +900,9 @@
                 const pdfHeight = (canvas.height / canvas.width) * pdfWidth;
 
                 pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-                pdf.save(`${category}_QR_Codes.pdf`);
+                pdf.save(`${itemName.replace(/[^a-zA-Z0-9]/g, '_')}_QR_Codes.pdf`);
 
-                showToast(`✅ Downloaded PDF for ${category}`);
+                showToast(`✅ Downloaded PDF for ${itemName}`);
 
             } catch (error) {
                 console.error('PDF error:', error);
@@ -852,13 +910,10 @@
             }
         }
 
-        // =============================================
-        // DOWNLOAD WORD - RELIABLE VERSION
-        // =============================================
-        function downloadCategoryWord(category) {
-            const qrs = generatedBulkQRs[category];
+        function downloadItemWord(itemName) {
+            const qrs = generatedBulkQRs[itemName];
             if (!qrs || qrs.length === 0) {
-                showToast('No QR codes for this category.', true);
+                showToast('No QR codes for this item.', true);
                 return;
             }
 
@@ -869,7 +924,7 @@
                           xmlns='http://www.w3.org/TR/REC-html40'>
                     <head>
                         <meta charset="utf-8">
-                        <title>${category} QR Codes</title>
+                        <title>${itemName} QR Codes</title>
                         <!--[if gte mso 9]>
                         <xml>
                             <w:WordDocument>
@@ -890,7 +945,7 @@
                         </style>
                     </head>
                     <body>
-                        <h1>📦 ${category} QR Codes</h1>
+                        <h1>📦 ${itemName} QR Codes</h1>
                         <p style="text-align:center; color:#718096; font-size:11pt;">Generated on ${new Date().toLocaleString()}</p>
                         <table>
                 `;
@@ -924,22 +979,19 @@
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = `${category}_QR_Codes.doc`;
+            link.download = `${itemName.replace(/[^a-zA-Z0-9]/g, '_')}_QR_Codes.doc`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
             URL.revokeObjectURL(url);
 
-            showToast(`✅ Downloaded Word doc for ${category}`);
+            showToast(`✅ Downloaded Word doc for ${itemName}`);
         }
 
-        // =============================================
-        // DOWNLOAD PNGs
-        // =============================================
-        function downloadCategoryPNGs(category) {
-            const qrs = generatedBulkQRs[category];
+        function downloadItemPNGs(itemName) {
+            const qrs = generatedBulkQRs[itemName];
             if (!qrs || qrs.length === 0) {
-                showToast('No QR codes for this category.', true);
+                showToast('No QR codes for this item.', true);
                 return;
             }
 
@@ -953,21 +1005,18 @@
                     document.body.removeChild(link);
                 }, index * 300);
             });
-            showToast(`⬇️ Downloading ${qrs.length} QR codes for ${category}...`);
+            showToast(`⬇️ Downloading ${qrs.length} QR codes for ${itemName}...`);
         }
 
-        // =============================================
-        // DOWNLOAD ZIP
-        // =============================================
-        function downloadCategoryZip(category) {
-            const qrs = generatedBulkQRs[category];
+        function downloadItemZip(itemName) {
+            const qrs = generatedBulkQRs[itemName];
             if (!qrs || qrs.length === 0) {
-                showToast('No QR codes for this category.', true);
+                showToast('No QR codes for this item.', true);
                 return;
             }
 
             const zip = new JSZip();
-            const imgFolder = zip.folder(category);
+            const imgFolder = zip.folder(itemName.replace(/[^a-zA-Z0-9]/g, '_'));
             let loaded = 0;
 
             qrs.forEach((qr) => {
@@ -980,17 +1029,18 @@
                             zip.generateAsync({ type: 'blob' })
                                 .then(content => {
                                     const link = document.createElement('a');
-                                    link.download = `${category}_QR_Codes.zip`;
+                                    link.download =
+                                        `${itemName.replace(/[^a-zA-Z0-9]/g, '_')}_QR_Codes.zip`;
                                     link.href = URL.createObjectURL(content);
                                     document.body.appendChild(link);
                                     link.click();
                                     document.body.removeChild(link);
-                                    showToast(`✅ Downloaded ZIP for ${category}`);
+                                    showToast(`✅ Downloaded ZIP for ${itemName}`);
                                 });
                         }
                     });
             });
-            showToast(`⏳ Creating ZIP for ${category}...`);
+            showToast(`⏳ Creating ZIP for ${itemName}...`);
         }
 
         // =============================================
@@ -998,51 +1048,51 @@
         // =============================================
 
         function downloadAllPDFs() {
-            const categories = Object.keys(generatedBulkQRs);
-            if (categories.length === 0) {
+            const items = Object.keys(generatedBulkQRs);
+            if (items.length === 0) {
                 showToast('⚠️ No QR codes generated yet. Click "Generate All QR Codes" first.', true);
                 return;
             }
 
-            categories.forEach((category, index) => {
+            items.forEach((itemName, index) => {
                 setTimeout(() => {
-                    downloadCategoryPDF(category);
+                    downloadItemPDF(itemName);
                 }, 1500 * index);
             });
 
-            showToast(`📄 Downloading ${categories.length} PDFs...`);
+            showToast(`📄 Downloading ${items.length} PDFs...`);
         }
 
         function downloadAllWordDocs() {
-            const categories = Object.keys(generatedBulkQRs);
-            if (categories.length === 0) {
+            const items = Object.keys(generatedBulkQRs);
+            if (items.length === 0) {
                 showToast('⚠️ No QR codes generated yet. Click "Generate All QR Codes" first.', true);
                 return;
             }
 
-            categories.forEach((category, index) => {
+            items.forEach((itemName, index) => {
                 setTimeout(() => {
-                    downloadCategoryWord(category);
+                    downloadItemWord(itemName);
                 }, 800 * index);
             });
 
-            showToast(`📄 Downloading ${categories.length} Word docs...`);
+            showToast(`📄 Downloading ${items.length} Word docs...`);
         }
 
         function downloadAllZips() {
-            const categories = Object.keys(generatedBulkQRs);
-            if (categories.length === 0) {
+            const items = Object.keys(generatedBulkQRs);
+            if (items.length === 0) {
                 showToast('⚠️ No QR codes generated yet. Click "Generate All QR Codes" first.', true);
                 return;
             }
 
-            categories.forEach((category, index) => {
+            items.forEach((itemName, index) => {
                 setTimeout(() => {
-                    downloadCategoryZip(category);
+                    downloadItemZip(itemName);
                 }, 1200 * index);
             });
 
-            showToast(`📦 Downloading ${categories.length} ZIPs...`);
+            showToast(`📦 Downloading ${items.length} ZIPs...`);
         }
 
         // =============================================
@@ -1069,19 +1119,19 @@
         window.loadSampleData = loadSampleData;
         window.parseBulkInput = parseBulkInput;
         window.processUploadedFile = processUploadedFile;
-        window.removeCategory = removeCategory;
+        window.removeItem = removeItem;
         window.clearAllItems = clearAllItems;
         window.generateAll = generateAll;
-        window.downloadCategoryPNGs = downloadCategoryPNGs;
-        window.downloadCategoryPDF = downloadCategoryPDF;
-        window.downloadCategoryWord = downloadCategoryWord;
-        window.downloadCategoryZip = downloadCategoryZip;
+        window.downloadItemPNGs = downloadItemPNGs;
+        window.downloadItemPDF = downloadItemPDF;
+        window.downloadItemWord = downloadItemWord;
+        window.downloadItemZip = downloadItemZip;
         window.downloadAllPDFs = downloadAllPDFs;
         window.downloadAllWordDocs = downloadAllWordDocs;
         window.downloadAllZips = downloadAllZips;
         window.showToast = showToast;
 
-        console.log('✅ Bulk QR Code Generator loaded with working PDF and Word support!');
+        console.log('✅ Bulk QR Code Generator loaded with unique ID support!');
     </script>
 </body>
 </html>
